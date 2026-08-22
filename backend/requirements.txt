@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+sqlalchemy
+pyswisseph==2.10.3.2
+geopy
+timezonefinder
+httpx
+jinja2
+xhtml2pdf
+python-multipart
+pytest
+tzdata
+
+matplotlib
+
