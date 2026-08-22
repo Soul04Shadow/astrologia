@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+backend/.venv/
+
+# builds
+.next/
+out/
+
+# env & data
+.env
+*.env
+backend/.env
+backend/app.db
+backend/*.pdf
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# misc
+.DS_Store
+*.log
