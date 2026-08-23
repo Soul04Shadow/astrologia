@@ -43,7 +43,7 @@ export default function DashboardPage() {
       )}
 
       {!loading && !error && profiles.length === 0 && (
-        <div className="rounded-xl border border-dashed border-saffron-400 bg-saffron-50 p-10 text-center">
+        <div className="rounded-xl border border-goldline bg-panel p-10 text-center">
           <p className="font-semibold text-saffron-800">No saved people yet</p>
           <p className="mt-1 text-sm text-muted">
             Create the first birth profile to generate a kundli.
@@ -55,7 +55,7 @@ export default function DashboardPage() {
         {profiles.map((p) => (
           <div
             key={p.id}
-            className="flex flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm transition hover:border-saffron-400"
+            className="flex flex-col rounded-xl border border-goldline bg-panel p-5 shadow-sm transition hover:border-gold"
           >
             <div className="flex items-start justify-between">
               <h2 className="text-lg font-bold">{p.name}</h2>
@@ -98,3 +98,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

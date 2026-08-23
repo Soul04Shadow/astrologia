@@ -9,14 +9,17 @@
   --color-saffron-600: #ea580c;
   --color-saffron-700: #c2410c;
   --color-saffron-800: #9a3412;
-  --color-cream: #faf5ea;
-  --color-cream-deep: #f5eddb;
-  --color-ink: #1c1917;
-  --color-muted: #78716c;
+  --color-cream: #f7f1e1;
+  --color-panel: #fffcf2;
+  --color-sidebarbg: #f1e8d2;
+  --color-goldline: #e0cb96;
+  --color-gold: #c9a23f;
+  --color-ink: #292524;
 }
 
 html,
 body {
   background-color: var(--color-cream);
   color: var(--color-ink);
+  font-family: var(--font-inter), var(--font-noto), ui-sans-serif, system-ui, sans-serif;
 }
