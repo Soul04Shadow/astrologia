@@ -3,12 +3,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .analysis import compute_drishti, compute_health_and_maraka_analysis, compute_house_lordships
+from .ashtakavarga import compute_ashtakavarga
 from .constants import SIGN_NAMES
 from .core import compute_d1, local_to_utc
 from .dasha import current_period, timeline_for_llm, vimshottari
 from .navamsa import navamsa_table
 from .panchang import panchang_for
-from .transits import compute_transits
+from .shadbala import compute_shadbala
+from .transits import compute_guru_gochar, compute_sade_sati_details, compute_transits
+from .vargas import compute_varga_chart
 from .yogas import detect_yogas
 
 
@@ -36,6 +39,7 @@ def compute_full_chart(year: int, month: int, day: int, hour: int, minute: int,
         "_llm_timeline": timeline_for_llm(dasha, datetime.now(timezone.utc)),
     }
 
+    # Navamsa D9
     chart["navamsa_d9"] = navamsa_table(chart["planets"])
     from .navamsa import navamsa_sign
     lagna_nav = navamsa_sign(chart["lagna"]["longitude"])
@@ -47,10 +51,33 @@ def compute_full_chart(year: int, month: int, day: int, hour: int, minute: int,
         },
         **chart["navamsa_d9"],
     }
+
+    # Divisional Charts (D10 Dashamsha, D7 Saptamsha, D3 Drekkana, D12 Dwadashamsha, D30 Trimshamsha)
+    chart["vargas"] = {
+        "D10": compute_varga_chart(chart["planets"], chart["lagna"]["longitude"], "D10"),
+        "D7": compute_varga_chart(chart["planets"], chart["lagna"]["longitude"], "D7"),
+        "D3": compute_varga_chart(chart["planets"], chart["lagna"]["longitude"], "D3"),
+        "D12": compute_varga_chart(chart["planets"], chart["lagna"]["longitude"], "D12"),
+        "D30": compute_varga_chart(chart["planets"], chart["lagna"]["longitude"], "D30"),
+    }
+
+    # Ashtakavarga (BAV & SAV 337 points)
+    chart["ashtakavarga"] = compute_ashtakavarga(chart["planets"], chart["lagna"]["sign_index"])
+
+    # Shadbala (6-fold Planetary Strengths)
+    birth_hour_local = hour + minute / 60.0
+    # Determine Shukla / Krishna Paksha
+    sun_lon = chart["planets"]["Sun"]["longitude"]
+    moon_lon = chart["planets"]["Moon"]["longitude"]
+    is_shukla = ((moon_lon - sun_lon) % 360) < 180
+    chart["shadbala"] = compute_shadbala(chart["planets"], birth_hour_local=birth_hour_local, is_shukla_paksha=is_shukla)
+
+    # Yogas
     chart["yogas"] = detect_yogas(chart)
     chart.pop("_positions_raw", None)
     chart.pop("_jd", None)
 
+    # Live Transits, Sade Sati & Guru Gochar
     if include_transits:
         now_utc = datetime.now(timezone.utc)
         chart["transits_now"] = {"computed_at": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -60,7 +87,10 @@ def compute_full_chart(year: int, month: int, day: int, hour: int, minute: int,
         except Exception as e:
             chart["panchang_today"] = {"error": str(e)}
 
-    # Compute comprehensive lordships, aspects, and health/Maraka profile
+    chart["sade_sati"] = compute_sade_sati_details(chart["moon_rashi"]["sign_index"])
+    chart["guru_gochar"] = compute_guru_gochar(chart["moon_rashi"]["sign_index"])
+
+    # Comprehensive lordships, aspects, and health/Maraka profile
     chart["analysis"] = compute_health_and_maraka_analysis(chart)
 
     return chart
@@ -99,74 +129,111 @@ def ground_truth_block(chart: dict, name: str = "") -> str:
         flag_str = f" [{', '.join(flags)}]" if flags else ""
         nak = p["nakshatra"]
         roles_info = planet_roles.get(pname, {}).get("summary", "")
-        role_part = f" | {roles_info}" if roles_info else ""
-        lines.append(f"- {pname}: {p['sign']} {p['degree']}, House {p['house']}{flag_str} | Nakshatra {nak['name']} pada {nak['pada']} (lord {nak['lord']}){role_part}")
+        roles_str = f" | {roles_info}" if roles_info else ""
+        lines.append(
+            f"- {pname}: {p['sign']} {p['degree']} (House {p['house']}){flag_str} "
+            f"in {nak['name']} pada {nak['pada']} (lord {nak['lord']}){roles_str}"
+        )
 
-    lines.append("")
-    lines.append("Functional Roles & House Governance:")
-    roles_list = []
-    for pname, prole in planet_roles.items():
-        if prole["roles"]:
-            roles_list.append(f"- {pname}: {', '.join(prole['roles'])} (Rules House {', '.join(str(h) for h in prole['houses_ruled'])})")
-    lines.extend(roles_list)
-    lines.append(f"- Badhaka: House {lordships['badhaka']['house']} (Lord: {lordships['badhaka']['lord']})")
+    # Ashtakavarga SAV Summary
+    av = chart.get("ashtakavarga")
+    if av:
+        sav_houses = av.get("sav_by_house", {})
+        sav_summary = ", ".join(f"H{h}:{pts}pts" for h, pts in sorted(sav_houses.items()))
+        lines.extend([
+            "",
+            f"Ashtakavarga (Sarvashtakavarga SAV Points per House, Total={av.get('total_bindus', 337)}):",
+            f"- {sav_summary} (Average=28 pts. ≥30=Strong fruition, ≤25=Friction/Delays)",
+        ])
 
-    lines.append("")
-    lines.append("Planetary Aspects (Drishti):")
-    drishti = analysis["drishti"]
-    for pname, d in drishti.items():
-        lines.append(f"- {d['summary']}")
+    # Shadbala Summary
+    sb = chart.get("shadbala")
+    if sb:
+        sb_parts = []
+        for p, d in sb.items():
+            sb_parts.append(f"{p}: {d['total_rupas']}R ({d['strength_ratio']}x req, {d['status'].split(' ')[0]})")
+        lines.extend([
+            "",
+            "Shadbala Planetary Strengths (in Rupas & Ratio to Minimum Required):",
+            f"- {', '.join(sb_parts)}",
+        ])
 
-    lines.append("")
-    lines.append("Health (Roga), Longevity (Ayurdaya), Dusthana & Maraka Analysis:")
-    h6 = analysis["h6"]
-    h8 = analysis["h8"]
-    h12 = analysis["h12"]
-    marakas = analysis["marakas"]
-    
-    h6_occ = f", Planets in 6th: {', '.join(h6['occupants'])}" if h6['occupants'] else ", No planets residing"
-    h6_asp = f", Aspected by: {', '.join(h6['aspects'])}" if h6['aspects'] else ", No aspects"
-    lines.append(f"- 6th House (Roga / Acute Diseases / Immunity): {h6['sign']} (Lord: {h6['lord']}{h6_occ}{h6_asp})")
+    # D10 Dashamsha Summary
+    d10 = chart.get("vargas", {}).get("D10")
+    if d10:
+        d10_lagna = d10["lagna"]["sign"]
+        d10_planets = [f"{p} in H{data['house']} ({data['sign']})" for p, data in d10["planets"].items() if p in ("Sun", "Mars", "Jupiter", "Saturn", "Mercury")]
+        lines.extend([
+            "",
+            f"Dashamsha (D10 Career Chart) - D10 Lagna: {d10_lagna}:",
+            f"- Key Placements: {', '.join(d10_planets)}",
+        ])
 
-    h8_occ = f", Planets in 8th: {', '.join(h8['occupants'])}" if h8['occupants'] else ", No planets residing"
-    h8_asp = f", Aspected by: {', '.join(h8['aspects'])}" if h8['aspects'] else ", No aspects"
-    lines.append(f"- 8th House (Ayurdaya / Longevity / Chronic Illness / Crises): {h8['sign']} (Lord: {h8['lord']}{h8_occ}{h8_asp})")
+    # Sade Sati & Guru Gochar Summary
+    sade_sati = chart.get("sade_sati")
+    guru_gochar = chart.get("guru_gochar")
+    if sade_sati or guru_gochar:
+        lines.extend([
+            "",
+            "Active Saturn & Jupiter Transit Profile:",
+        ])
+        if sade_sati:
+            lines.append(f"- Saturn Transit / Sade Sati: {sade_sati['summary']}")
+        if guru_gochar:
+            lines.append(f"- Jupiter Gochar: {guru_gochar['summary']}")
 
-    h12_occ = f", Planets in 12th: {', '.join(h12['occupants'])}" if h12['occupants'] else ", No planets residing"
-    lines.append(f"- 12th House (Vyaya / Hospitalization / Isolation): {h12['sign']} (Lord: {h12['lord']}{h12_occ})")
+    # House Functional Roles
+    lines.extend([
+        "",
+        "Key Functional Role Classifications:",
+        f"- Lagna Lord: {l['lord']} (Overall vitality, self, health direction)",
+        f"- Yogakaraka: {', '.join(p for p, r in planet_roles.items() if 'Yogakaraka' in r.get('roles', [])) or 'None'}",
+        f"- Maraka Lords (2nd & 7th houses of vulnerability): {', '.join(lordships['maraka_lords'])}",
+        f"- Dusthana Lords (6th Roga, 8th Ayur, 12th Vyaya): 6th={lordships['dusthana_lords'][6]}, 8th={lordships['dusthana_lords'][8]}, 12th={lordships['dusthana_lords'][12]}",
+        f"- Badhaka Lord: {lordships['badhaka']['lord']} (Rules House {lordships['badhaka']['house']})",
+    ])
 
-    lines.append(f"- Maraka Sthanas (2nd & 7th Houses): Primary Maraka Lords = {', '.join(marakas['lords'])}; Resident planets in Maraka houses = {', '.join(marakas['occupants']) if marakas['occupants'] else 'None'}")
-    
-    if analysis["current_dasha_vulnerabilities"]:
-        lines.append("- Active Dasha Timing Alerts:")
-        for alert in analysis["current_dasha_vulnerabilities"]:
-            lines.append(f"  * {alert}")
-    else:
-        lines.append("- Active Dasha Timing: No acute Maraka or Dusthana lord active currently.")
+    # Planetary Aspects (Drishti)
+    lines.extend([
+        "",
+        "Planetary Aspects (Drishti):",
+    ])
+    aspects_map = analysis.get("aspects") or analysis.get("drishti", {})
+    for pname, d_info in aspects_map.items():
+        if d_info.get("aspected_houses"):
+            lines.append(f"- {pname} aspects: {d_info.get('aspect_summary', d_info.get('summary', ''))}")
 
-    lines.append(f"- Sade Sati Status: {analysis['sade_sati']}")
+    # Health, Longevity & Dasha Vulnerability Profile
+    health = analysis.get("health_profile")
+    if health:
+        lines.extend([
+            "",
+            "Classical Health (Roga) & Longevity (Ayurdaya) Indicators:",
+            f"- 6th House (Acute Illness / Roga / Immunity): {health.get('house_6_sign')} (Lord: {health.get('house_6_lord')}) | Occupants: {', '.join(health.get('house_6_occupants', [])) or 'Empty'}",
+            f"- 8th House (Longevity / Chronic Conditions / Deep Healing): {health.get('house_8_sign')} (Lord: {health.get('house_8_lord')}) | Occupants: {', '.join(health.get('house_8_occupants', [])) or 'Empty'}",
+            f"- 12th House (Hospitalization / Recuperation / Subconscious): {health.get('house_12_sign')} (Lord: {health.get('house_12_lord')}) | Occupants: {', '.join(health.get('house_12_occupants', [])) or 'Empty'}",
+            f"- Maraka Houses (2nd & 7th): 2nd House={health.get('house_2_sign')} ({health.get('house_2_lord')}), 7th House={health.get('house_7_sign')} ({health.get('house_7_lord')})",
+            f"- Key Health Karakas: {', '.join(f'{k}: {v}' for k, v in health.get('karakas', {}).items())}",
+        ])
 
-    lines.append("")
-    d9 = chart.get("navamsa_d9", {})
-    if d9:
-        lines.append("Navamsa (D9) signs:")
-        lines.append(", ".join(f"{p}: {v['sign']}" for p, v in d9.items()))
-        lines.append("")
-
-    if chart.get("dasha"):
-        lines.append("Vimshottari Dasha status:")
-        lines.append(chart["dasha"]["_llm_timeline"])
-        lines.append("")
-
+    # Yogas
     if chart.get("yogas"):
-        lines.append("Yogas detected in this chart:")
-        for y in chart["yogas"]:
-            lines.append(f"- {y['name']}: {y['basis']}")
-        lines.append("")
+        lines.extend([
+            "",
+            "Detected Yogas:",
+            *[f"- **{y['name']}**: {y.get('basis') or y.get('description', '')}" for y in chart["yogas"]],
+        ])
 
-    if chart.get("transits_now"):
-        t = chart["transits_now"]["positions"]
-        lines.append(f"Current transits (gochar) as of {chart['transits_now']['computed_at']}:")
-        lines.append(", ".join(f"{p} in {v['sign']}{' (R)' if v['retrograde'] else ''}" for p, v in t.items()))
+    # Dasha Timeline
+    cur = chart["dasha"]["current"]
+    lines.extend([
+        "",
+        f"Active Dasha: {cur['mahadasha']['lord']}-{cur['antardasha']['lord']} "
+        f"(ends {cur['antardasha']['end_date']})",
+        f"Mahadasha: {cur['mahadasha']['lord']} ({cur['mahadasha']['start_date']} to {cur['mahadasha']['end_date']})",
+        "",
+        "Vimshottari Dasha Timeline (upcoming periods):",
+        chart["dasha"]["_llm_timeline"],
+    ])
 
     return "\n".join(lines)

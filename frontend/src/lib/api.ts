@@ -89,6 +89,59 @@ export interface Chart {
       }
     >;
   };
+  ashtakavarga?: {
+    bav: Record<string, number[]>;
+    sav_by_sign: Record<string, number>;
+    sav_by_house: Record<number, number>;
+    house_strengths: Record<number, { house: number; sign: string; points: number; status: string }>;
+    total_bindus: number;
+    average_per_house: number;
+  };
+  shadbala?: Record<
+    string,
+    {
+      planet: string;
+      sthana_bala: number;
+      dig_bala: number;
+      kaala_bala: number;
+      cheshta_bala: number;
+      naisargika_bala: number;
+      drik_bala: number;
+      total_virupas: number;
+      total_rupas: number;
+      required_rupas: number;
+      strength_ratio: number;
+      status: string;
+    }
+  >;
+  vargas?: Record<
+    string,
+    {
+      varga: string;
+      description: string;
+      lagna: { sign: string; sign_index: number; house: number };
+      planets: Record<string, { sign: string; sign_index: number; house: number; vargottama: boolean }>;
+    }
+  >;
+  sade_sati?: {
+    saturn_current_sign: string;
+    saturn_current_degree: string;
+    saturn_is_retrograde: boolean;
+    natal_moon_sign: string;
+    is_sade_sati: boolean;
+    sade_sati_phase?: string | null;
+    is_kantaka_shani: boolean;
+    is_ashtama_shani: boolean;
+    summary: string;
+  };
+  guru_gochar?: {
+    jupiter_current_sign: string;
+    jupiter_current_degree: string;
+    jupiter_is_retrograde: boolean;
+    house_from_natal_moon: number;
+    is_favorable_transit: boolean;
+    summary: string;
+  };
 }
 
 export interface Profile {

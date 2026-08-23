@@ -223,9 +223,39 @@ def compute_health_and_maraka_analysis(chart: dict) -> dict:
             elif diff == 7:
                 sade_sati = "Active (Ashtama Shani — Saturn in 8th from Moon, critical physical/health transit)"
 
+    health_profile = {
+        "house_6_sign": h6_sign,
+        "house_6_lord": h6_lord,
+        "house_6_occupants": h6_planets,
+        "house_6_aspects": h6_aspects,
+        "house_8_sign": h8_sign,
+        "house_8_lord": h8_lord,
+        "house_8_occupants": h8_planets,
+        "house_8_aspects": h8_aspects,
+        "house_12_sign": h12_sign,
+        "house_12_lord": h12_lord,
+        "house_12_occupants": h12_planets,
+        "house_12_aspects": h12_aspects,
+        "house_2_sign": lordships["house_to_sign"][2]["sign"],
+        "house_2_lord": lordships["house_to_lord"][2],
+        "house_7_sign": lordships["house_to_sign"][7]["sign"],
+        "house_7_lord": lordships["house_to_lord"][7],
+        "karakas": {
+            "Sun": "Vitality, Heart & Bones",
+            "Moon": "Mind, Fluids & Emotional Equilibrium",
+            "Mars": "Blood, Muscles & Physical Stamina",
+            "Mercury": "Nervous System, Cognition & Skin",
+            "Jupiter": "Liver, Fat & Metabolic Health",
+            "Venus": "Reproductive System & Hormonal Balance",
+            "Saturn": "Ayurdaya (Longevity), Joints & Chronic Patterns",
+        },
+    }
+
     return {
         "lordships": lordships,
         "drishti": drishti,
+        "aspects": drishti,
+        "health_profile": health_profile,
         "h6": {"sign": h6_sign, "lord": h6_lord, "occupants": h6_planets, "aspects": h6_aspects},
         "h8": {"sign": h8_sign, "lord": h8_lord, "occupants": h8_planets, "aspects": h8_aspects},
         "h12": {"sign": h12_sign, "lord": h12_lord, "occupants": h12_planets, "aspects": h12_aspects},

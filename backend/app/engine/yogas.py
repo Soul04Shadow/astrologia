@@ -26,10 +26,12 @@ def detect_yogas(chart: dict) -> list[dict]:
 
     jup = planets["Jupiter"]["sign_index"]
     if _house_from(moon_sign, jup) in KENDRA_HOUSES:
-        yogas.append({"name": "Gajakesari Yoga", "basis": f"Jupiter in kendra (house {_house_from(moon_sign, jup)}) from Moon"})
+        desc = f"Jupiter in kendra (house {_house_from(moon_sign, jup)}) from Moon"
+        yogas.append({"name": "Gajakesari Yoga", "basis": desc, "description": desc})
 
     if planets["Sun"]["sign_index"] == planets["Mercury"]["sign_index"]:
-        yogas.append({"name": "Budhaditya Yoga", "basis": "Sun and Mercury conjunct in the same sign"})
+        desc = "Sun and Mercury conjunct in the same sign"
+        yogas.append({"name": "Budhaditya Yoga", "basis": desc, "description": desc})
 
     for pname, dsign in DEBILITATION_SIGN.items():
         p = planets.get(pname)
@@ -50,22 +52,28 @@ def detect_yogas(chart: dict) -> list[dict]:
             cancelled = True
             basis_parts.append(f"dispositor {dispositor_lord} exalted")
         if cancelled:
+            desc = f"{pname} debilitated in {p['sign']}; cancellation: " + "; ".join(basis_parts)
             yogas.append({"name": "Neecha Bhanga Raja Yoga",
-                          "basis": f"{pname} debilitated in {p['sign']}; cancellation: " + "; ".join(basis_parts)})
+                          "basis": desc,
+                          "description": desc})
 
     for pname, yoga_name in PANCH_MAHAPURUSH.items():
         p = planets[pname]
         if p["house"] in KENDRA_HOUSES and p["dignity"] in ("Exalted", "Own Sign", "Moolatrikona"):
+            desc = f"{pname} {p['dignity'].lower()} in kendra house {p['house']}"
             yogas.append({"name": f"{yoga_name} Yoga (Panch Mahapurush)",
-                          "basis": f"{pname} {p['dignity'].lower()} in kendra house {p['house']}"})
+                          "basis": desc,
+                          "description": desc})
 
     lords_by_sign_house = {}
     for h in range(1, 13):
         sign_idx = (lagna_sign + h - 1) % 12
         lords_by_sign_house[h] = planets[SIGN_LORDS[sign_idx]]
     if lords_by_sign_house[2]["sign_index"] == lords_by_sign_house[11]["sign_index"]:
+        desc = "Lords of 2nd and 11th houses conjunct"
         yogas.append({"name": "Dhana Yoga (2-11 combination)",
-                      "basis": "Lords of 2nd and 11th houses conjunct"})
+                      "basis": desc,
+                      "description": desc})
 
     seen = set()
     unique = []

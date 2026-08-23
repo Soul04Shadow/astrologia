@@ -7,11 +7,14 @@ import {
   ArrowRight,
   Clock3,
   CloudSun,
+  Compass,
   Download,
   FileText,
   Image as ImageIcon,
   LayoutGrid,
+  Scale,
   ScrollText,
+  Sparkles,
   Sun,
 } from "lucide-react";
 import VargaChart, { type PlacementMark } from "@/components/VargaChart";
@@ -33,11 +36,14 @@ function Card({ title, children, className = "" }: { title?: string; children: R
 }
 
 const TABS = [
-  { id: "d1", icon: Sun },
-  { id: "d9", icon: LayoutGrid },
-  { id: "dasha", icon: Clock3 },
-  { id: "panchang", icon: CloudSun },
-  { id: "yogas", icon: ScrollText },
+  { id: "d1", label: "D1 Rasi", icon: Sun },
+  { id: "vargas", label: "Divisional Charts", icon: LayoutGrid },
+  { id: "ashtakavarga", label: "Ashtakavarga", icon: Sparkles },
+  { id: "shadbala", label: "Shadbala", icon: Scale },
+  { id: "transits", label: "Transits & Sade Sati", icon: Compass },
+  { id: "dasha", label: "Dasha", icon: Clock3 },
+  { id: "panchang", label: "Panchang", icon: CloudSun },
+  { id: "yogas", label: "Yogas", icon: ScrollText },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -59,8 +65,8 @@ export default function ChartPage() {
   const [chart, setChart] = useState<Chart | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabId>("d1");
-  const d1Ref = useRef<SVGSVGElement | null>(null);
-  const d9Ref = useRef<SVGSVGElement | null>(null);
+  const [selectedVarga, setSelectedVarga] = useState<string>("D9");
+  const chartRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
     Promise.all([api.getProfile(id), api.getChart(id)])
@@ -73,22 +79,12 @@ export default function ChartPage() {
 
   const d1Placements: PlacementMark[] = useMemo(() => {
     if (!chart) return [];
-    const lagnaDeg = chart.lagna.degree.split("'")[0] + "'";
     const lagnaMark: PlacementMark = {
-      label: `${terms.ascLabel()} ${lagnaDeg}`,
+      label: `${terms.ascLabel()} ${chart.lagna.degree}`,
       signIndex: chart.lagna.sign_index,
       house: 1,
       highlight: true,
-      tip: [
-        `${t("stat.lagna")}: ${terms.sign(chart.lagna.sign)} ${chart.lagna.degree}`,
-        `${t("chart.house")}: 1`,
-        `${t("chart.lord", { x: terms.planet(chart.lagna.lord) })}`,
-        chart.lagna.nakshatra
-          ? `${t("chart.nakshatra")}: ${terms.nakshatra(chart.lagna.nakshatra.name)} ${t("chart.pada")} ${chart.lagna.nakshatra.pada}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      tip: `${terms.ascLabel()} (${terms.sign(chart.lagna.sign)} ${chart.lagna.degree})`,
     };
     const planetMarks: PlacementMark[] = PLANET_ORDER.map((pname) => {
       const p = chart.planets[pname];
@@ -119,20 +115,47 @@ export default function ChartPage() {
     return [lagnaMark, ...planetMarks];
   }, [chart, terms, t]);
 
-  const d9Placements: PlacementMark[] = useMemo(() => {
-    if (!chart?.navamsa_d9) return [];
-    return Object.entries(chart.navamsa_d9).map(([name, v]) => ({
-      label: name === "Lagna" ? terms.ascLabel() : terms.abbrev(name) + (v.vargottama ? "*" : ""),
+  // Dynamic placements for currently selected Varga (D9, D10, D7, D3, D30, etc.)
+  const vargaPlacements: { marks: PlacementMark[]; lagnaSignIndex: number; title: string } = useMemo(() => {
+    if (!chart) return { marks: [], lagnaSignIndex: 0, title: "" };
+
+    if (selectedVarga === "D9") {
+      const lagnaIdx = chart.navamsa_d9?.["Lagna"]?.sign_index ?? 0;
+      const marks = Object.entries(chart.navamsa_d9 || {}).map(([name, v]) => ({
+        label: name === "Lagna" ? terms.ascLabel() : terms.abbrev(name) + (v.vargottama ? "*" : ""),
+        signIndex: v.sign_index,
+        highlight: v.vargottama,
+        tip: name === "Lagna" ? `${terms.ascLabel()} (${terms.sign(v.sign)})` : `${terms.planet(name)}: ${terms.sign(v.sign)} ${v.vargottama ? "(Vargottama)" : ""}`,
+      }));
+      return { marks, lagnaSignIndex: lagnaIdx, title: "D9 Navamsa (Dharma & Relationships)" };
+    }
+
+    const vargaData = chart.vargas?.[selectedVarga];
+    if (!vargaData) return { marks: [], lagnaSignIndex: 0, title: selectedVarga };
+
+    const lagnaIdx = vargaData.lagna?.sign_index ?? 0;
+    const lagnaMark: PlacementMark = {
+      label: terms.ascLabel(),
+      signIndex: lagnaIdx,
+      house: 1,
+      highlight: true,
+      tip: `${terms.ascLabel()} (${vargaData.lagna.sign})`,
+    };
+
+    const planetMarks = Object.entries(vargaData.planets || {}).map(([pname, v]) => ({
+      label: terms.abbrev(pname) + (v.vargottama ? "*" : ""),
       signIndex: v.sign_index,
+      house: v.house,
       highlight: v.vargottama,
-      tip: [
-        name === "Lagna" ? null : `${t("chart.sign")}: ${terms.sign(v.sign)}`,
-        v.vargottama ? `${t("chart.vargottama")} ✓` : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      tip: `${terms.planet(pname)}: ${v.sign} (House ${v.house}) ${v.vargottama ? "(Vargottama)" : ""}`,
     }));
-  }, [chart, terms, t]);
+
+    return {
+      marks: [lagnaMark, ...planetMarks],
+      lagnaSignIndex: lagnaIdx,
+      title: `${selectedVarga} - ${vargaData.description}`,
+    };
+  }, [chart, selectedVarga, terms]);
 
   function downloadSvg(ref: React.RefObject<SVGSVGElement | null>, suffix: string) {
     if (!ref.current) return;
@@ -248,7 +271,7 @@ export default function ChartPage() {
             }`}
           >
             <tabItem.icon size={14} strokeWidth={2.2} />
-            {t(`tabs.${tabItem.id}`)}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -262,13 +285,13 @@ export default function ChartPage() {
               </span>
               <span className="flex gap-1.5">
                 <button
-                  onClick={() => downloadSvg(d1Ref, "D1")}
+                  onClick={() => downloadSvg(chartRef, "D1")}
                   className="flex items-center gap-1 rounded-md border border-goldline px-2 py-1 text-[11px] font-bold text-saffron-800 hover:bg-saffron-100"
                 >
                   <ImageIcon size={12} /> SVG
                 </button>
                 <button
-                  onClick={() => downloadPng(d1Ref, "D1")}
+                  onClick={() => downloadPng(chartRef, "D1")}
                   className="flex items-center gap-1 rounded-md border border-goldline px-2 py-1 text-[11px] font-bold text-saffron-800 hover:bg-saffron-100"
                 >
                   <Download size={12} /> PNG
@@ -277,7 +300,7 @@ export default function ChartPage() {
             </div>
             <div className="mx-auto max-w-[430px]">
               <VargaChart
-                ref={d1Ref}
+                ref={chartRef}
                 lagnaSignIndex={chart.lagna.sign_index}
                 placements={d1Placements}
                 signLabels={signLabels}
@@ -293,62 +316,274 @@ export default function ChartPage() {
         </div>
       )}
 
-      {tab === "d9" && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <Card className="lg:col-span-5">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-stone-600">
-                {t("chart.legend_d9")}
-              </span>
-              <span className="flex gap-1.5">
-                <button
-                  onClick={() => downloadSvg(d9Ref, "D9")}
-                  className="flex items-center gap-1 rounded-md border border-goldline px-2 py-1 text-[11px] font-bold text-saffron-800 hover:bg-saffron-100"
-                >
-                  <ImageIcon size={12} /> SVG
-                </button>
-                <button
-                  onClick={() => downloadPng(d9Ref, "D9")}
-                  className="flex items-center gap-1 rounded-md border border-goldline px-2 py-1 text-[11px] font-bold text-saffron-800 hover:bg-saffron-100"
-                >
-                  <Download size={12} /> PNG
-                </button>
-              </span>
-            </div>
-            <div className="mx-auto max-w-[430px]">
-              <VargaChart
-                ref={d9Ref}
-                lagnaSignIndex={chart.navamsa_d9["Lagna"]?.sign_index ?? 0}
-                placements={d9Placements}
-                signLabels={signLabels}
-                houseWord={houseWord}
-                title={locale === "hi" ? "द9 नवमांश कुंडली" : "D9 Navamsa Chart"}
-              />
+      {tab === "vargas" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-goldline/60 pb-2">
+            {[
+              { code: "D9", name: "D9 Navamsa (Dharma & Marriage)" },
+              { code: "D10", name: "D10 Dashamsha (Career & Status)" },
+              { code: "D7", name: "D7 Saptamsha (Children & Progeny)" },
+              { code: "D3", name: "D3 Drekkana (Courage & Siblings)" },
+              { code: "D30", name: "D30 Trimshamsha (Arishta & Afflictions)" },
+            ].map((v) => (
+              <button
+                key={v.code}
+                onClick={() => setSelectedVarga(v.code)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  selectedVarga === v.code
+                    ? "bg-saffron-600 text-white shadow-sm"
+                    : "border border-goldline bg-panel text-stone-700 hover:bg-saffron-50"
+                }`}
+              >
+                {v.code}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <Card className="lg:col-span-5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-stone-600">
+                  {vargaPlacements.title}
+                </span>
+                <span className="flex gap-1.5">
+                  <button
+                    onClick={() => downloadSvg(chartRef, selectedVarga)}
+                    className="flex items-center gap-1 rounded-md border border-goldline px-2 py-1 text-[11px] font-bold text-saffron-800 hover:bg-saffron-100"
+                  >
+                    <ImageIcon size={12} /> SVG
+                  </button>
+                  <button
+                    onClick={() => downloadPng(chartRef, selectedVarga)}
+                    className="flex items-center gap-1 rounded-md border border-goldline px-2 py-1 text-[11px] font-bold text-saffron-800 hover:bg-saffron-100"
+                  >
+                    <Download size={12} /> PNG
+                  </button>
+                </span>
+              </div>
+              <div className="mx-auto max-w-[430px]">
+                <VargaChart
+                  ref={chartRef}
+                  lagnaSignIndex={vargaPlacements.lagnaSignIndex}
+                  placements={vargaPlacements.marks}
+                  signLabels={signLabels}
+                  houseWord={houseWord}
+                  title={vargaPlacements.title}
+                />
+              </div>
+            </Card>
+
+            <Card title={`${selectedVarga} Placements Table`} className="lg:col-span-7">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
+                      <th className="py-1.5 pr-3">{t("chart.body")}</th>
+                      <th className="py-1.5 pr-3">{t("chart.sign")}</th>
+                      <th className="py-1.5 pr-3">{t("chart.house")}</th>
+                      <th className="py-1.5">{t("chart.vargottama")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedVarga === "D9"
+                      ? Object.entries(chart.navamsa_d9 || {}).map(([name, v]) => (
+                          <tr key={name} className="border-b border-saffron-100/70">
+                            <td className="py-1.5 pr-3 font-semibold">{terms.planet(name)}</td>
+                            <td className="py-1.5 pr-3">{terms.sign(v.sign)}</td>
+                            <td className="py-1.5 pr-3">—</td>
+                            <td className="py-1.5 text-xs font-bold text-saffron-700">
+                              {v.vargottama ? "✓ Yes" : "—"}
+                            </td>
+                          </tr>
+                        ))
+                      : Object.entries(chart.vargas?.[selectedVarga]?.planets || {}).map(([name, v]) => (
+                          <tr key={name} className="border-b border-saffron-100/70">
+                            <td className="py-1.5 pr-3 font-semibold">{terms.planet(name)}</td>
+                            <td className="py-1.5 pr-3">{v.sign}</td>
+                            <td className="py-1.5 pr-3 font-semibold">House {v.house}</td>
+                            <td className="py-1.5 text-xs font-bold text-saffron-700">
+                              {v.vargottama ? "✓ Yes" : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {tab === "ashtakavarga" && chart.ashtakavarga && (
+        <div className="space-y-4">
+          <Card title={`Sarvashtakavarga (SAV) House Strengths (Total = ${chart.ashtakavarga.total_bindus} Bindus, Average = 28 pts)`}>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {Object.entries(chart.ashtakavarga.house_strengths).map(([hStr, hs]) => {
+                const isStrong = hs.points >= 30;
+                const isLow = hs.points < 26;
+                return (
+                  <div
+                    key={hStr}
+                    className={`rounded-xl border p-3 ${
+                      isStrong
+                        ? "border-emerald-300 bg-emerald-50/60"
+                        : isLow
+                        ? "border-amber-300 bg-amber-50/60"
+                        : "border-goldline bg-panel"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-stone-600">House {hs.house}</span>
+                      <span
+                        className={`text-xs font-extrabold ${
+                          isStrong ? "text-emerald-700" : isLow ? "text-amber-800" : "text-saffron-800"
+                        }`}
+                      >
+                        {hs.points} pts
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-semibold text-stone-700">{hs.sign}</p>
+                    <p className="mt-0.5 text-[10px] font-medium text-stone-500">{hs.status}</p>
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-stone-200 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          isStrong ? "bg-emerald-600" : isLow ? "bg-amber-600" : "bg-saffron-600"
+                        }`}
+                        style={{ width: `${Math.min(100, (hs.points / 40) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
 
-          <Card title={t("chart.d9_table")} className="lg:col-span-7">
+          {chart.ashtakavarga.bav && (
+            <Card title="Bhinnashtakavarga (BAV) 7-Planet Matrix (Points per Sign 1-12)">
+              <div className="overflow-x-auto">
+                <table className="w-full text-center text-xs">
+                  <thead>
+                    <tr className="border-b-2 border-saffron-600 text-[10px] uppercase font-bold text-stone-600">
+                      <th className="py-2 text-left pr-2">Planet</th>
+                      {[
+                        "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+                        "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+                      ].map((s) => (
+                        <th key={s} className="py-2 px-1">{s.slice(0, 3)}</th>
+                      ))}
+                      <th className="py-2 px-2 font-bold text-saffron-800">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(chart.ashtakavarga.bav).map(([pname, pts]) => (
+                      <tr key={pname} className="border-b border-saffron-100/70">
+                        <td className="py-1.5 text-left font-semibold">{terms.planet(pname)}</td>
+                        {pts.map((pt, idx) => (
+                          <td key={idx} className={`py-1.5 px-1 ${pt >= 5 ? "font-bold text-emerald-700 bg-emerald-50/40" : pt <= 2 ? "font-bold text-amber-700 bg-amber-50/40" : ""}`}>
+                            {pt}
+                          </td>
+                        ))}
+                        <td className="py-1.5 px-2 font-bold text-saffron-800">{pts.reduce((a, b) => a + b, 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {tab === "shadbala" && chart.shadbala && (
+        <Card title="Shadbala (6-Fold Planetary Strength Analysis in Rupas & Virupas)">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
-                  <th className="py-1.5 pr-3">{t("chart.body")}</th>
-                  <th className="py-1.5 pr-3">{t("chart.sign")}</th>
-                  <th className="py-1.5">{t("chart.vargottama")}</th>
+                  <th className="py-2 pr-3">{t("chart.body")}</th>
+                  <th className="py-2 pr-2">Sthana</th>
+                  <th className="py-2 pr-2">Dig</th>
+                  <th className="py-2 pr-2">Kaala</th>
+                  <th className="py-2 pr-2">Cheshta</th>
+                  <th className="py-2 pr-2">Naisargika</th>
+                  <th className="py-2 pr-2">Drik</th>
+                  <th className="py-2 pr-2 font-bold text-saffron-800">Total Rupas</th>
+                  <th className="py-2 pr-2">Ratio</th>
+                  <th className="py-2">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(chart.navamsa_d9).map(([name, v]) => (
-                  <tr key={name} className="border-b border-saffron-100/70">
-                    <td className="py-1.5 pr-3 font-semibold">{terms.planet(name)}</td>
-                    <td className="py-1.5 pr-3">{terms.sign(v.sign)}</td>
-                    <td className="py-1.5 text-xs font-bold text-saffron-700">
-                      {v.vargottama ? t("chart.yes") : "—"}
-                    </td>
-                  </tr>
-                ))}
+                {Object.entries(chart.shadbala).map(([pname, sb]) => {
+                  const isStrong = sb.strength_ratio >= 1.15;
+                  const isWeak = sb.strength_ratio < 0.95;
+                  return (
+                    <tr key={pname} className="border-b border-saffron-100/70">
+                      <td className="py-2 pr-3 font-semibold">{terms.planet(pname)}</td>
+                      <td className="py-2 pr-2 tabular-nums text-xs">{sb.sthana_bala}</td>
+                      <td className="py-2 pr-2 tabular-nums text-xs">{sb.dig_bala}</td>
+                      <td className="py-2 pr-2 tabular-nums text-xs">{sb.kaala_bala}</td>
+                      <td className="py-2 pr-2 tabular-nums text-xs">{sb.cheshta_bala}</td>
+                      <td className="py-2 pr-2 tabular-nums text-xs">{sb.naisargika_bala}</td>
+                      <td className="py-2 pr-2 tabular-nums text-xs">{sb.drik_bala}</td>
+                      <td className="py-2 pr-2 font-bold text-saffron-800 tabular-nums">{sb.total_rupas} R</td>
+                      <td className="py-2 pr-2 font-semibold text-xs tabular-nums">{sb.strength_ratio}x</td>
+                      <td className="py-2 text-xs">
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 font-bold ${
+                            isStrong
+                              ? "bg-emerald-100 text-emerald-800"
+                              : isWeak
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-saffron-100 text-saffron-800"
+                          }`}
+                        >
+                          {sb.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          </Card>
+          </div>
+        </Card>
+      )}
+
+      {tab === "transits" && (
+        <div className="space-y-4">
+          {chart.sade_sati && (
+            <Card title="Saturn Transit & Sade Sati Status (from Natal Moon)">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-goldline bg-saffron-50/60 p-3">
+                  <p className="text-[11px] font-bold uppercase text-saffron-700">Saturn Current Position</p>
+                  <p className="mt-1 text-sm font-bold">
+                    {chart.sade_sati.saturn_current_sign} ({chart.sade_sati.saturn_current_degree}){" "}
+                    {chart.sade_sati.saturn_is_retrograde && "(Retrograde)"}
+                  </p>
+                  <p className="mt-1 text-xs text-stone-600">Natal Moon Sign: {chart.sade_sati.natal_moon_sign}</p>
+                </div>
+                <div className="rounded-xl border border-goldline bg-saffron-50/60 p-3">
+                  <p className="text-[11px] font-bold uppercase text-saffron-700">Sade Sati Phase</p>
+                  <p className="mt-1 text-sm font-bold">
+                    {chart.sade_sati.is_sade_sati
+                      ? chart.sade_sati.sade_sati_phase
+                      : chart.sade_sati.is_kantaka_shani
+                      ? "Kantaka Shani (4th from Moon)"
+                      : chart.sade_sati.is_ashtama_shani
+                      ? "Ashtama Shani (8th from Moon)"
+                      : "No Active Sade Sati"}
+                  </p>
+                  <p className="mt-1 text-xs text-stone-600">{chart.sade_sati.summary}</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {chart.transits_now && (
+            <Card title={t("gochar.title", { at: chart.transits_now.computed_at.slice(0, 16).replace("T", " ") })}>
+              <TransitTable positions={chart.transits_now.positions} />
+            </Card>
+          )}
         </div>
       )}
 
@@ -418,64 +653,55 @@ export default function ChartPage() {
         </Card>
       )}
 
-      {(tab === "panchang" || tab === "yogas") && (
+      {tab === "panchang" && (
         <div className="space-y-4">
-          {tab === "panchang" && (
-            <>
-              {chart.panchang_today && !("error" in chart.panchang_today) && (
-                <Card
-                  title={t("panchang.title", {
-                    date: chart.panchang_today.date,
-                    tz: chart.panchang_today.tz_name,
-                  })}
-                >
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-                    <Field
-                      label={t("panchang.tithi")}
-                      value={`${terms.paksha(chart.panchang_today.tithi.paksha)} ${terms.tithi(chart.panchang_today.tithi.name)}`}
-                    />
-                    <Field
-                      label={t("panchang.nakshatra")}
-                      value={`${terms.nakshatra(chart.panchang_today.nakshatra.name)} (${terms.planet(chart.panchang_today.nakshatra.lord)})`}
-                    />
-                    <Field label={t("panchang.yoga")} value={terms.yogaState(chart.panchang_today.yoga.name)} />
-                    <Field label={t("panchang.karana")} value={terms.karana(chart.panchang_today.karana.name)} />
-                    <Field
-                      label={t("panchang.var")}
-                      value={`${terms.weekday(chart.panchang_today.weekday)} (${terms.planet(chart.panchang_today.var_lord)})`}
-                    />
-                    <Field
-                      label={t("panchang.luminaries")}
-                      value={`${terms.sign(chart.panchang_today.sun_sign)} / ${terms.sign(chart.panchang_today.moon_sign)}`}
-                    />
-                  </dl>
-                </Card>
-              )}
-              {chart.transits_now && (
-                <Card title={t("gochar.title", { at: chart.transits_now.computed_at.slice(0, 16).replace("T", " ") })}>
-                  <TransitTable positions={chart.transits_now.positions} />
-                </Card>
-              )}
-            </>
-          )}
-
-          {tab === "yogas" && (
-            <Card title={t("yogas.title", { n: chart.yogas.length })}>
-              {chart.yogas.length === 0 ? (
-                <p className="text-sm text-stone-600">{t("yogas.none")}</p>
-              ) : (
-                <ul className="space-y-2.5">
-                  {chart.yogas.map((y) => (
-                    <li key={y.name} className="border-l-4 border-gold bg-saffron-50/70 p-2.5">
-                      <p className="text-sm font-bold text-saffron-800">{terms.formation(y.name)}</p>
-                      <p className="text-xs text-stone-600">{y.basis}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {chart.panchang_today && !("error" in chart.panchang_today) && (
+            <Card
+              title={t("panchang.title", {
+                date: chart.panchang_today.date,
+                tz: chart.panchang_today.tz_name,
+              })}
+            >
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+                <Field
+                  label={t("panchang.tithi")}
+                  value={`${terms.paksha(chart.panchang_today.tithi.paksha)} ${terms.tithi(chart.panchang_today.tithi.name)}`}
+                />
+                <Field
+                  label={t("panchang.nakshatra")}
+                  value={`${terms.nakshatra(chart.panchang_today.nakshatra.name)} (${terms.planet(chart.panchang_today.nakshatra.lord)})`}
+                />
+                <Field label={t("panchang.yoga")} value={terms.yogaState(chart.panchang_today.yoga.name)} />
+                <Field label={t("panchang.karana")} value={terms.karana(chart.panchang_today.karana.name)} />
+                <Field
+                  label={t("panchang.var")}
+                  value={`${terms.weekday(chart.panchang_today.weekday)} (${terms.planet(chart.panchang_today.var_lord)})`}
+                />
+                <Field
+                  label={t("panchang.luminaries")}
+                  value={`${terms.sign(chart.panchang_today.sun_sign)} / ${terms.sign(chart.panchang_today.moon_sign)}`}
+                />
+              </dl>
             </Card>
           )}
         </div>
+      )}
+
+      {tab === "yogas" && (
+        <Card title={t("yogas.title", { n: chart.yogas.length })}>
+          {chart.yogas.length === 0 ? (
+            <p className="text-sm text-stone-600">{t("yogas.none")}</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {chart.yogas.map((y) => (
+                <li key={y.name} className="border-l-4 border-gold bg-saffron-50/70 p-2.5">
+                  <p className="text-sm font-bold text-saffron-800">{terms.formation(y.name)}</p>
+                  <p className="text-xs text-stone-600">{y.basis}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       )}
     </div>
   );

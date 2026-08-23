@@ -167,6 +167,7 @@ def compute_d1(year: int, month: int, day: int, hour: int, minute: int, tz_name:
         },
         "moon_rashi": {
             "sign": moon["sign"],
+            "sign_index": moon["sign_index"],
             "house": moon["house"],
             "nakshatra": moon["nakshatra"]["name"],
             "pada": moon["nakshatra"]["pada"],

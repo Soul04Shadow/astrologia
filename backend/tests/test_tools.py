@@ -8,10 +8,21 @@ def test_tools_specs_and_execute():
     from app.services.tools import TOOLS, execute
     from app.engine import compute_full_chart
 
-    # 6 tools
-    assert len(TOOLS) == 6, f"expected 6 tools got {len(TOOLS)}"
+    # 10 tools
+    assert len(TOOLS) == 10, f"expected 10 tools got {len(TOOLS)}"
     names = [t["function"]["name"] for t in TOOLS]
-    expected = {"get_transit", "get_panchang", "get_dasha_at", "get_yogas", "get_navamsa", "get_chart_snapshot"}
+    expected = {
+        "get_transit",
+        "get_panchang",
+        "get_dasha_at",
+        "get_yogas",
+        "get_navamsa",
+        "get_chart_snapshot",
+        "get_ashtakavarga",
+        "get_shadbala",
+        "get_varga_chart",
+        "get_sade_sati_details",
+    }
     assert set(names) == expected, f"names mismatch {names}"
 
     # JSON Schema validate: each has type function, description, parameters jsonSchema
@@ -40,14 +51,16 @@ def test_tools_specs_and_execute():
     # get_transit
     out = asyncio.run(execute("get_transit", {"at_date": "2027-06-01"}, chart))
     data = json.loads(out)
-    assert "positions" in data
-    assert "Sun" in data["positions"]
+    assert "transits" in data or "positions" in data
+    trans_map = data.get("transits") or data.get("positions")
+    assert "Sun" in trans_map
 
     # get_panchang
     out = asyncio.run(execute("get_panchang", {"at_date": "2027-06-01"}, chart))
     data = json.loads(out)
-    assert "tithi" in data
-    assert "nakshatra" in data
+    assert "panchang" in data
+    assert "tithi" in data["panchang"]
+    assert "nakshatra" in data["panchang"]
 
     # get_dasha_at
     out = asyncio.run(execute("get_dasha_at", {"at_date": "2027-06-01"}, chart))
@@ -69,6 +82,31 @@ def test_tools_specs_and_execute():
     data = json.loads(out)
     assert "planets" in data
     assert "lagna" in data
+
+    # get_ashtakavarga
+    out = asyncio.run(execute("get_ashtakavarga", {}, chart))
+    data = json.loads(out)
+    assert "ashtakavarga" in data
+    assert data["ashtakavarga"]["total_bindus"] == 337
+
+    # get_shadbala
+    out = asyncio.run(execute("get_shadbala", {}, chart))
+    data = json.loads(out)
+    assert "shadbala" in data
+    assert "Sun" in data["shadbala"]
+
+    # get_varga_chart (D10, D7, D3, D12, D30)
+    for v in ["D10", "D7", "D3", "D12", "D30"]:
+        out = asyncio.run(execute("get_varga_chart", {"varga": v}, chart))
+        data = json.loads(out)
+        assert "varga_chart" in data
+        assert data["varga_chart"]["varga"] == v
+
+    # get_sade_sati_details
+    out = asyncio.run(execute("get_sade_sati_details", {}, chart))
+    data = json.loads(out)
+    assert "sade_sati" in data
+    assert "guru_gochar" in data
 
     # bad date raises ValueError not crash
     try:

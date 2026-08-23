@@ -58,4 +58,72 @@ def test_health_and_maraka_analysis():
     assert "h12" in analysis
     assert "marakas" in analysis
     assert "sade_sati" in analysis
+    assert "health_profile" in analysis
     assert len(analysis["marakas"]["lords"]) >= 1
+
+
+def test_ashtakavarga_337_invariant_and_kakshya():
+    from app.engine.ashtakavarga import compute_ashtakavarga, get_kakshya
+
+    chart = compute_full_chart(1990, 5, 21, 14, 30, "Asia/Kolkata", 28.6139, 77.2090)
+    av = compute_ashtakavarga(chart["planets"], chart["lagna"]["sign_index"])
+
+    assert av["total_bindus"] == 337
+    assert sum(av["sav_by_house"].values()) == 337
+    assert sum(av["sav_by_sign"].values()) == 337
+    assert len(av["bav"]) == 7
+
+    # Check Kakshya
+    k0 = get_kakshya(1.5)
+    assert k0["kakshya_num"] == 1
+    assert k0["lord"] == "Saturn"
+
+    k8 = get_kakshya(28.0)
+    assert k8["kakshya_num"] == 8
+    assert k8["lord"] == "Lagna"
+
+
+def test_shadbala_calculations():
+    from app.engine.shadbala import compute_shadbala, MIN_RUPAS_REQUIRED
+
+    chart = compute_full_chart(1990, 5, 21, 14, 30, "Asia/Kolkata", 28.6139, 77.2090)
+    sb = compute_shadbala(chart["planets"])
+
+    assert len(sb) == 7
+    for p, d in sb.items():
+        assert d["total_rupas"] > 0
+        assert d["required_rupas"] == MIN_RUPAS_REQUIRED[p]
+        assert d["strength_ratio"] == round(d["total_rupas"] / d["required_rupas"], 2)
+
+
+def test_vargas_formulas():
+    from app.engine.vargas import d3_sign, d7_sign, d9_sign, d10_sign, d12_sign, d30_sign
+
+    # Aries (0) 5°
+    assert d3_sign(5.0) == 0      # 1st Drekkana
+    assert d3_sign(15.0) == 4     # 2nd Drekkana (Leo)
+    assert d3_sign(25.0) == 8     # 3rd Drekkana (Sagittarius)
+
+    # Taurus (1, Even) 5°
+    assert d7_sign(35.0) == (1 + 6 + 1) % 12  # Scorpio + 1 = Sagittarius (8)
+
+    # D10 for Aries 1° (Odd) -> Aries (0)
+    assert d10_sign(1.0) == 0
+    # D10 for Taurus 1° (Even) -> Capricorn (9)
+    assert d10_sign(31.0) == 9
+
+    # D30 for Aries 2° (Odd: Mars -> Aries)
+    assert d30_sign(2.0) == 0
+    # D30 for Taurus 2° (Even: Venus -> Taurus)
+    assert d30_sign(32.0) == 1
+
+
+def test_ground_truth_block_generation():
+    from app.engine import ground_truth_block
+
+    chart = compute_full_chart(1990, 5, 21, 14, 30, "Asia/Kolkata", 28.6139, 77.2090)
+    gt = ground_truth_block(chart, "Test Native")
+    assert "DETERMINISTIC ASTROLOGICAL GROUND TRUTH" in gt
+    assert "Ashtakavarga (Sarvashtakavarga SAV Points per House, Total=337)" in gt
+    assert "Shadbala Planetary Strengths" in gt
+    assert "Dashamsha (D10 Career Chart)" in gt
