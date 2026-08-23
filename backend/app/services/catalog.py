@@ -9,10 +9,12 @@ CATALOG: dict[str, list[dict]] = {
         {"id": "nemotron-3-ultra-free", "label": "Nemotron 3 Ultra", "ctx": "1M", "free": True, "tools": True},
     ],
     "nvidia": [
+        {"id": "nvidia/nemotron-3-nano-30b-a3b", "label": "Nemotron 3 Nano 30B (Fast)", "ctx": "1M", "free": True, "tools": True},
+        {"id": "nvidia/llama-3.3-nemotron-super-49b-v1.5", "label": "Nemotron Super 49B v1.5", "ctx": "128K", "free": True, "tools": True},
         {"id": "nvidia/nemotron-3-ultra-550b-a55b", "label": "Nemotron 3 Ultra 550B", "ctx": "1M", "free": True, "tools": True},
-        {"id": "meta/llama-3.3-70b-instruct", "label": "Llama 3.3 70B", "ctx": "128K", "free": True, "tools": True},
-        {"id": "deepseek/deepseek-v4", "label": "DeepSeek V4", "ctx": "1M", "free": True, "tools": True},
-        {"id": "z-ai/glm-5.2", "label": "GLM-5.2", "ctx": "1M", "free": True, "tools": True},
+        {"id": "meta/llama-3.3-70b-instruct", "label": "Llama 3.3 70B Instruct", "ctx": "128K", "free": True, "tools": True},
+        {"id": "deepseek-ai/deepseek-v4-flash-0731", "label": "DeepSeek V4 Flash", "ctx": "1M", "free": True, "tools": True},
+        {"id": "mistralai/mistral-large-2-instruct", "label": "Mistral Large 2", "ctx": "128K", "free": True, "tools": True},
     ],
     "groq": [
         {"id": "groq/compound", "label": "Groq Compound", "ctx": "128K", "free": True, "tools": True},

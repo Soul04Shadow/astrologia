@@ -23,16 +23,19 @@ async def stream_chat(messages: list[dict], provider: str | None = None,
                       model: str | None = None) -> AsyncGenerator[dict, None]:
     cfg = provider_config(provider, model)
     s = get_settings()
-    payload: dict = {"model": model or cfg["model"], "messages": messages,
+    eff_model = model or cfg["model"]
+    payload: dict = {"model": eff_model, "messages": messages,
                "temperature": temperature if temperature is not None else s.temperature,
                "stream": True}
     if tools is not None:
         payload["tools"] = tools
     if tool_choice is not None:
         payload["tool_choice"] = tool_choice
+    if "deepseek" in eff_model.lower() and cfg.get("name") == "nvidia":
+        payload["chat_template_kwargs"] = {"thinking": True}
     url = f"{cfg['base_url']}/chat/completions"
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
+        async with httpx.AsyncClient(timeout=180) as client:
             async with client.stream("POST", url, json=payload, headers=_headers(cfg)) as resp:
                 if resp.status_code != 200:
                     body = (await resp.aread()).decode(errors="replace")[:500]
@@ -51,8 +54,10 @@ async def stream_chat(messages: list[dict], provider: str | None = None,
                         choice = chunk["choices"][0] if chunk.get("choices") else {}
                         delta = choice.get("delta", {}) or {}
                         finish_reason = choice.get("finish_reason")
-                        # content delta
+                        # content delta (or reasoning delta fallback for thinking models)
                         content = delta.get("content")
+                        if not content and not delta.get("tool_calls"):
+                            content = delta.get("reasoning_content") or delta.get("reasoning")
                         if content:
                             yield {"type": "delta", "content": content}
                         # tool_calls fragments
@@ -136,12 +141,15 @@ async def complete_chat(messages: list[dict], provider: str | None = None,
                         model: str | None = None) -> str:
     cfg = provider_config(provider, model)
     url = f"{cfg['base_url']}/chat/completions"
-    payload: dict = {"model": model or cfg["model"], "messages": messages,
+    eff_model = model or cfg["model"]
+    payload: dict = {"model": eff_model, "messages": messages,
                "temperature": temperature if temperature is not None else get_settings().temperature}
     if tools is not None:
         payload["tools"] = tools
     if tool_choice is not None:
         payload["tool_choice"] = tool_choice
+    if "deepseek" in eff_model.lower() and cfg.get("name") == "nvidia":
+        payload["chat_template_kwargs"] = {"thinking": True}
     try:
         async with httpx.AsyncClient(timeout=180) as client:
             resp = await client.post(url, json=payload, headers=_headers(cfg))
@@ -152,6 +160,8 @@ async def complete_chat(messages: list[dict], provider: str | None = None,
             msg = data["choices"][0].get("message", {})
             # handle tool_calls in non-streaming: if present, return json dumps? but keep backward compat returning content
             content = msg.get("content")
+            if not content:
+                content = msg.get("reasoning_content") or msg.get("reasoning")
             if content is not None:
                 return content
             # if no content but tool_calls, return serialized tool_calls

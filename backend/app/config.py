@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_api_key: str = ""
-    nvidia_model: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    nvidia_model: str = "nvidia/nemotron-3-nano-30b-a3b"
 
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_api_key: str = ""
