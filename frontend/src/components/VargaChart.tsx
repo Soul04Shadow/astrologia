@@ -98,20 +98,10 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
           return (
             <g key={house}>
               <text
-                x={c.x - 30}
-                y={signY}
-                textAnchor="end"
-                fontSize="9"
-                fontWeight="600"
-                fill="#a8a29e"
-              >
-                {houseWord} {house}
-              </text>
-              <text
-                x={c.x + 4}
+                x={c.x}
                 y={signY}
                 textAnchor="middle"
-                fontSize={sl && /[\u0900-\u097F]/.test(sl.code) ? 12.5 : 14}
+                fontSize={sl && /[\u0900-\u097F]/.test(sl.code) ? 12.5 : 13}
                 fontWeight="700"
                 fill="#c2410c"
                 style={{ cursor: sl ? "help" : "default" }}
@@ -120,6 +110,16 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
                 onMouseLeave={hide}
               >
                 {sl?.code ?? ""}
+              </text>
+              <text
+                x={c.x}
+                y={signY + 11}
+                textAnchor="middle"
+                fontSize="8.5"
+                fontWeight="600"
+                fill="#a8a29e"
+              >
+                {house}
               </text>
               {list.map((mark, i) => (
                 <text
@@ -156,15 +156,15 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
 
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-50 max-w-[250px] rounded-lg border border-goldline bg-stone-900/95 px-2.5 py-1.5 shadow-xl"
+          className="pointer-events-none absolute z-50 max-w-[260px] rounded-lg border border-goldline bg-panel px-3 py-2 shadow-lg"
           style={{
             left: Math.min(Math.max(tooltip.x - 40, 4), 300),
-            top: Math.max(tooltip.y - 46, 4),
+            top: Math.max(tooltip.y - 52, 4),
           }}
         >
-          <p className="text-[11px] font-bold text-saffron-200">{tooltip.title}</p>
+          <p className="text-[11px] font-bold text-saffron-800">{tooltip.title}</p>
           {tooltip.lines.map((l, i) => (
-            <p key={i} className="text-[10.5px] leading-snug text-stone-200">
+            <p key={i} className="text-[10.5px] leading-snug text-stone-700">
               {l}
             </p>
           ))}
