@@ -26,13 +26,14 @@ Endpoint `https://integrate.api.nvidia.com/v1` — OpenAI compat, supports `tool
 
 ## 3. Groq (fastest free — tool-calling ready)
 
-1. Free key: <https://console.groq.com/keys> (no card, 30 RPM / 1K RPD most models)
+1. Free key: <https://console.groq.com/keys> (no card — limits per your screenshot: `groq/compound` 30 RPM 250 RPD 70K TPM, `openai/gpt-oss-120b`/`qwen/qwen3.6-27b` 30 RPM 1K RPD 8K TPM, see console `RPM/RPD/TPM/TPD/ASH/ASD + ITPM/OTPM`)
 2. In `backend/.env`:
    ```
    LLM_PROVIDER=groq
    GROQ_API_KEY=gsk_...
-   GROQ_MODEL=llama-3.3-70b-versatile
+   GROQ_MODEL=qwen/qwen3.6-27b
    ```
+Live free chat models (2026-08 screenshot): `groq/compound`, `groq/compound-mini`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b` (all `tools:true`). `llama-3.3-70b` not in current free list.
 
 ## 4. OpenRouter (free :free variants — Ox Alpha too)
 

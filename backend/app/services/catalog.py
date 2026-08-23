@@ -15,11 +15,11 @@ CATALOG: dict[str, list[dict]] = {
         {"id": "z-ai/glm-5.2", "label": "GLM-5.2", "ctx": "1M", "free": True, "tools": True},
     ],
     "groq": [
-        {"id": "llama-3.3-70b-versatile", "label": "Llama 3.3 70B Versatile", "ctx": "128K", "free": True, "tools": True},
-        {"id": "qwen/qwen3-32b", "label": "Qwen3 32B", "ctx": "128K", "free": True, "tools": True},
+        {"id": "groq/compound", "label": "Groq Compound", "ctx": "128K", "free": True, "tools": True},
+        {"id": "groq/compound-mini", "label": "Groq Compound Mini", "ctx": "128K", "free": True, "tools": True},
         {"id": "openai/gpt-oss-120b", "label": "GPT-OSS 120B", "ctx": "128K", "free": True, "tools": True},
-        {"id": "llama-3.1-8b-instant", "label": "Llama 3.1 8B Instant", "ctx": "128K", "free": True, "tools": True},
-        {"id": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Llama 4 Scout", "ctx": "128K", "free": True, "tools": True},
+        {"id": "openai/gpt-oss-20b", "label": "GPT-OSS 20B", "ctx": "128K", "free": True, "tools": True},
+        {"id": "qwen/qwen3.6-27b", "label": "Qwen3.6 27B", "ctx": "128K", "free": True, "tools": True},
     ],
     "openrouter": [
         {"id": "stealth/ox-alpha:free", "label": "Ox Alpha Free", "ctx": "1M", "free": True, "tools": True},
