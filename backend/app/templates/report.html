@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <style>
   @page { size: A4; margin: 1.6cm; }
-  body { font-family: "Helvetica"; color: #27272a; font-size: 10pt; }
+  body { font-family: "Nirmala UI", "Helvetica", sans-serif; color: #27272a; font-size: 10pt; }
   h1 { color: #EA580C; font-size: 20pt; margin-bottom: 2pt; }
   h2 { color: #C2410C; font-size: 13pt; border-bottom: 1.5pt solid #FED7AA; padding-bottom: 3pt; margin-top: 16pt; }
   .sub { color: #78716c; font-size: 9pt; }
@@ -22,7 +22,8 @@
 
   <div class="meta">
     <b>Birth:</b> {{ birth.date }} at {{ birth.time }} ({{ birth.tz_name }})<br/>
-    <b>Place:</b> {{ "%.4f"|format(birth.latitude) }}, {{ "%.4f"|format(birth.longitude) }}<br/>
+    {% if place_name %}<b>Place:</b> {{ place_name }}<br/>{% endif %}
+    <b>Coordinates:</b> {{ "%.4f"|format(birth.latitude) }}, {{ "%.4f"|format(birth.longitude) }}<br/>
     <b>Lagna:</b> {{ lagna.sign }} {{ lagna.degree }} (Lord {{ lagna.lord }}) &nbsp;
     <b>Rashi:</b> {{ moon.sign }} &nbsp; <b>Nakshatra:</b> {{ moon.nakshatra }} pada {{ moon.pada }}
   </div>

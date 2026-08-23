@@ -25,14 +25,21 @@ def report_pdf(profile_id: int, db: Session = Depends(get_db)):
     profile = _get_profile_or_404(db, profile_id)
     try:
         chart = _chart_for_profile(profile)
-        pdf_bytes = render_report_pdf(chart, profile.name)
+        pdf_bytes = render_report_pdf(chart, profile.name, place_name=profile.place_name)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {e}")
-    filename = f"kundli_{profile.name.replace(' ', '_')}_{profile.birth_date}.pdf"
-    return Response(content=pdf_bytes, media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    from urllib.parse import quote
+
+    ascii_fallback = f"kundli_{profile.id}_{profile.birth_date}.pdf"
+    utf8_name = f"kundli_{profile.name}_{profile.birth_date}.pdf"
+    headers = {
+        "Content-Disposition": (
+            f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(utf8_name)}"
+        )
+    }
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
 @router.post("", response_model=ProfileOut)
