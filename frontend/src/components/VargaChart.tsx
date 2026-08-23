@@ -49,6 +49,7 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
   ref,
 ) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [hoveredHouse, setHoveredHouse] = useState<number | null>(null);
 
   const housePlanets: Record<number, PlacementMark[]> = {};
   for (const p of placements) {
@@ -72,6 +73,22 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
 
   function hide() {
     setTooltip(null);
+    setHoveredHouse(null);
+  }
+
+  function showSide(e: React.MouseEvent, titleText: string, lines: string[]) {
+    const host = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement;
+    if (!host) return;
+    const rect = host.getBoundingClientRect();
+    // tooltip to the side of the cursor, not covering the hovered text
+    const offsetX = 18;
+    const offsetY = -10;
+    setTooltip({
+      x: e.clientX - rect.left + offsetX,
+      y: e.clientY - rect.top + offsetY,
+      title: titleText,
+      lines,
+    });
   }
 
   return (
@@ -94,30 +111,40 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
           const list = housePlanets[house] ?? [];
           const sIdx = signForHouse(house);
           const sl = signLabels?.[sIdx];
-          const signY = c.y - 24 - Math.max(list.length - 1, 0) * 8;
+          const isHovered = hoveredHouse === house;
+          // keep sign+number together at top, planets well below to avoid overlap
+          const signY = c.y - 22 - Math.max(list.length - 1, 0) * 4;
+          const planetBaseY = c.y + 6;
           return (
-            <g key={house}>
+            <g
+              key={house}
+              onMouseEnter={() => setHoveredHouse(house)}
+              onMouseLeave={hide}
+              style={{ cursor: list.length || sl ? "pointer" : "default" }}
+            >
+              {isHovered && (
+                <circle cx={c.x} cy={c.y} r={28} fill="rgba(251,146,60,0.10)" stroke="rgba(251,146,60,0.35)" strokeWidth={1.2} />
+              )}
               <text
                 x={c.x}
                 y={signY}
                 textAnchor="middle"
-                fontSize={sl && /[\u0900-\u097F]/.test(sl.code) ? 12.5 : 13}
+                fontSize={sl && /[\u0900-\u097F]/.test(sl.code) ? 12 : 12.5}
                 fontWeight="700"
-                fill="#c2410c"
-                style={{ cursor: sl ? "help" : "default" }}
-                onMouseEnter={(e) => sl && show(e, sl.name, [`${houseWord} ${house}`])}
-                onMouseMove={(e) => sl && show(e, sl.name, [`${houseWord} ${house}`])}
-                onMouseLeave={hide}
+                fill={isHovered ? "#9a3412" : "#c2410c"}
+                style={{ cursor: sl ? "pointer" : "default" }}
+                onMouseEnter={(e) => sl && showSide(e, sl.name, [`${houseWord} ${house}`])}
+                onMouseMove={(e) => sl && showSide(e, sl.name, [`${houseWord} ${house}`])}
               >
                 {sl?.code ?? ""}
               </text>
               <text
                 x={c.x}
-                y={signY + 11}
+                y={signY + 10}
                 textAnchor="middle"
-                fontSize="8.5"
+                fontSize="8"
                 fontWeight="600"
-                fill="#a8a29e"
+                fill={isHovered ? "#78716c" : "#a8a29e"}
               >
                 {house}
               </text>
@@ -125,19 +152,19 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
                 <text
                   key={`${house}-${mark.label}-${i}`}
                   x={c.x}
-                  y={c.y - 6 + i * 17}
+                  y={planetBaseY + i * 16}
                   textAnchor="middle"
-                  fontSize="13.5"
+                  fontSize="13"
                   fontWeight="700"
                   fill={mark.highlight ? "#b45309" : "#292524"}
-                  style={{ cursor: mark.tip ? "help" : "default" }}
+                  style={{ cursor: mark.tip ? "pointer" : "default" }}
                   onMouseEnter={(e) => {
                     const [tt, ...rest] = mark.tip!.split("\n");
-                    show(e, tt, rest);
+                    showSide(e, tt, rest);
                   }}
                   onMouseMove={(e) => {
                     const [tt, ...rest] = mark.tip!.split("\n");
-                    show(e, tt, rest);
+                    showSide(e, tt, rest);
                   }}
                   onMouseLeave={hide}
                 >
