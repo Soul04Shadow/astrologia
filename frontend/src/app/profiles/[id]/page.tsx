@@ -16,10 +16,9 @@ import {
 } from "lucide-react";
 import VargaChart, { type PlacementMark } from "@/components/VargaChart";
 import { api, type Chart, type Profile } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 const PLANET_ORDER = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"];
-
-const ABBREV: Record<string, string> = { Rahu: "Ra", Ketu: "Ke" };
 
 function Card({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) {
   return (
@@ -33,11 +32,11 @@ function Card({ title, children, className = "" }: { title?: string; children: R
 }
 
 const TABS = [
-  { id: "d1", label: "D1 Rasi", icon: Sun },
-  { id: "d9", label: "D9 Navamsa", icon: LayoutGrid },
-  { id: "dasha", label: "Dashas", icon: Clock3 },
-  { id: "panchang", label: "Panchang & Gochar", icon: CloudSun },
-  { id: "yogas", label: "Yogas", icon: ScrollText },
+  { id: "d1", icon: Sun },
+  { id: "d9", icon: LayoutGrid },
+  { id: "dasha", icon: Clock3 },
+  { id: "panchang", icon: CloudSun },
+  { id: "yogas", icon: ScrollText },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -45,6 +44,7 @@ type TabId = (typeof TABS)[number]["id"];
 export default function ChartPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const { t, terms } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [chart, setChart] = useState<Chart | null>(null);
   const [error, setError] = useState("");
@@ -67,23 +67,23 @@ export default function ChartPage() {
       const p = chart.planets[pname];
       return {
         label:
-          (ABBREV[pname] ?? pname.slice(0, 2)) +
+          terms.abbrev(pname) +
           (p.dignity === "Exalted" ? "*" : "") +
           (p.retrograde ? "R" : ""),
         signIndex: p.sign_index,
         highlight: p.dignity === "Exalted" || p.retrograde,
       };
     });
-  }, [chart]);
+  }, [chart, terms]);
 
   const d9Placements: PlacementMark[] = useMemo(() => {
     if (!chart?.navamsa_d9) return [];
     return Object.entries(chart.navamsa_d9).map(([name, v]) => ({
-      label: name === "Lagna" ? "Asc" : name + (v.vargottama ? "*" : ""),
+      label: name === "Lagna" ? terms.ascLabel() : terms.abbrev(name) + (v.vargottama ? "*" : ""),
       signIndex: v.sign_index,
       highlight: v.vargottama,
     }));
-  }, [chart]);
+  }, [chart, terms]);
 
   function downloadSvg(ref: React.RefObject<SVGSVGElement | null>, suffix: string) {
     if (!ref.current) return;
@@ -123,7 +123,7 @@ export default function ChartPage() {
 
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>;
-  if (!chart || !profile) return <p className="text-sm text-stone-500">Calculating chart…</p>;
+  if (!chart || !profile) return <p className="text-sm text-stone-600">{t("common.calculating")}</p>;
 
   const current = chart.dasha.current;
   const bd = chart.birth_details;
@@ -136,7 +136,7 @@ export default function ChartPage() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-3">
             <h1 className="text-xl font-bold">{profile.name}</h1>
-            <span className="text-sm font-semibold text-saffron-800">
+            <span className="text-sm font-semibold tabular-nums text-saffron-800">
               {bd.date} · {bd.time}
             </span>
             <span className="truncate text-xs text-stone-600 sm:max-w-md" title={profile.place_name}>
@@ -149,49 +149,57 @@ export default function ChartPage() {
             href={`${api.base}/api/profiles/${id}/report.pdf`}
             className="flex items-center gap-1.5 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white hover:bg-saffron-700"
           >
-            <FileText size={14} /> PDF Report
+            <FileText size={14} /> {t("chart.pdf")}
           </a>
           <Link
             href={`/chat/${id}`}
             className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-3 py-2 text-xs font-bold text-saffron-800 hover:bg-saffron-100"
           >
-            Consult AI <ArrowRight size={14} />
+            {t("chart.consult")} <ArrowRight size={14} />
           </Link>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Stat label="Lagna" value={chart.lagna.sign} sub={`${chart.lagna.degree} · lord ${chart.lagna.lord}`} />
         <Stat
-          label="Moon Rashi"
-          value={chart.moon_rashi.sign}
-          sub={`${chart.moon_rashi.nakshatra} pada ${chart.moon_rashi.pada}`}
+          label={t("stat.lagna")}
+          value={terms.sign(chart.lagna.sign)}
+          sub={`${chart.lagna.degree} · ${t("chart.lord", { x: terms.planet(chart.lagna.lord) })}`}
         />
         <Stat
-          label="Current Dasha"
-          value={current.mahadasha ? `${current.mahadasha.lord}` : "—"}
-          sub={current.antardasha ? `${current.antardasha.lord} antardasha` : ""}
+          label={t("stat.moonrashi")}
+          value={terms.sign(chart.moon_rashi.sign)}
+          sub={`${terms.nakshatra(chart.moon_rashi.nakshatra)} ${t("chart.pada")} ${chart.moon_rashi.pada}`}
         />
         <Stat
-          label="Birth Nakshatra"
-          value={chart.moon_rashi.nakshatra}
-          sub={`lord ${chart.moon_rashi.nakshatra_lord}`}
+          label={t("stat.currdasha")}
+          value={current.mahadasha ? terms.planet(current.mahadasha.lord) : "—"}
+          sub={
+            current.antardasha
+              ? t("chart.antardasha_of", { x: terms.planet(current.antardasha.lord) })
+              : undefined
+          }
+        />
+        <Stat
+          label={t("stat.birthnak")}
+          value={terms.nakshatra(chart.moon_rashi.nakshatra)}
+          sub={t("chart.lord", { x: terms.planet(chart.moon_rashi.nakshatra_lord) })}
         />
       </div>
 
       <div className="flex gap-0.5 overflow-x-auto rounded-t-xl border-b-2 border-goldline bg-sidebarbg/60 px-1 pt-1">
-        {TABS.map((t) => (
+        {TABS.map((tabItem) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tabItem.id}
+            onClick={() => setTab(tabItem.id)}
             className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-bold transition sm:text-[13px] ${
-              tab === t.id
+              tab === tabItem.id
                 ? "bg-panel text-saffron-800 shadow-[0_2px_0_0_var(--color-panel)]"
                 : "text-stone-600 hover:bg-saffron-100/60 hover:text-saffron-800"
             }`}
           >
-            <t.icon size={14} strokeWidth={2.2} />
-            {t.label}
+            <tabItem.icon size={14} strokeWidth={2.2} />
+            {t(`tabs.${tabItem.id}`)}
           </button>
         ))}
       </div>
@@ -201,7 +209,7 @@ export default function ChartPage() {
           <Card className="lg:col-span-5">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wide text-stone-600">
-                * exalted · R retrograde
+                {t("chart.legend_d1")}
               </span>
               <span className="flex gap-1.5">
                 <button
@@ -223,7 +231,7 @@ export default function ChartPage() {
             </div>
           </Card>
 
-          <Card title="Planetary Positions" className="lg:col-span-7">
+          <Card title={t("chart.positions")} className="lg:col-span-7">
             <PlanetTable chart={chart} />
           </Card>
         </div>
@@ -234,7 +242,7 @@ export default function ChartPage() {
           <Card className="lg:col-span-5">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wide text-stone-600">
-                Asc = D9 lagna · * vargottama
+                {t("chart.legend_d9")}
               </span>
               <span className="flex gap-1.5">
                 <button
@@ -260,22 +268,22 @@ export default function ChartPage() {
             </div>
           </Card>
 
-          <Card title="Navamsa Placements" className="lg:col-span-7">
+          <Card title={t("chart.d9_table")} className="lg:col-span-7">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
-                  <th className="py-1.5 pr-3">Body</th>
-                  <th className="py-1.5 pr-3">D9 Sign</th>
-                  <th className="py-1.5">Vargottama</th>
+                  <th className="py-1.5 pr-3">{t("chart.body")}</th>
+                  <th className="py-1.5 pr-3">{t("chart.sign")}</th>
+                  <th className="py-1.5">{t("chart.vargottama")}</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(chart.navamsa_d9).map(([name, v]) => (
                   <tr key={name} className="border-b border-saffron-100/70">
-                    <td className="py-1.5 pr-3 font-semibold">{name}</td>
-                    <td className="py-1.5 pr-3">{v.sign}</td>
+                    <td className="py-1.5 pr-3 font-semibold">{terms.planet(name)}</td>
+                    <td className="py-1.5 pr-3">{terms.sign(v.sign)}</td>
                     <td className="py-1.5 text-xs font-bold text-saffron-700">
-                      {v.vargottama ? "Yes" : "—"}
+                      {v.vargottama ? t("chart.yes") : "—"}
                     </td>
                   </tr>
                 ))}
@@ -286,13 +294,21 @@ export default function ChartPage() {
       )}
 
       {tab === "dasha" && (
-        <Card title="Vimshottari Dasha Timeline">
+        <Card title={t("dasha.title")}>
           {current.mahadasha && (
             <p className="mb-3 rounded-lg border border-goldline bg-saffron-50 p-2.5 text-[13px] font-semibold text-saffron-800">
-              Now running: {current.mahadasha.lord} Mahadasha ({current.mahadasha.start_date} to{" "}
-              {current.mahadasha.end_date}) · {current.antardasha?.lord ?? "—"} Antardasha
+              {t("dasha.now", {
+                maha: terms.planet(current.mahadasha.lord),
+                from: current.mahadasha.start_date,
+                to: current.mahadasha.end_date,
+                antar: current.antardasha ? terms.planet(current.antardasha.lord) : "—",
+              })}
               {current.next_antardasha &&
-                ` · next ${current.next_antardasha.lord} begins ${current.next_antardasha.start_date}`}
+                " " +
+                  t("dasha.next", {
+                    lord: terms.planet(current.next_antardasha.lord),
+                    date: current.next_antardasha.start_date,
+                  })}
             </p>
           )}
           <div className="space-y-1.5">
@@ -307,7 +323,8 @@ export default function ChartPage() {
                 >
                   <summary className="flex cursor-pointer items-center justify-between">
                     <span className={`text-sm ${isActive ? "font-bold text-saffron-800" : "font-semibold"}`}>
-                      {m.lord} Mahadasha{isActive && " — ACTIVE"}
+                      {t("dasha.maha", { x: terms.planet(m.lord) })}
+                      {isActive && ` — ${t("dasha.active")}`}
                     </span>
                     <span className="text-xs tabular-nums text-stone-600">
                       {m.start_date} → {m.end_date}
@@ -325,7 +342,7 @@ export default function ChartPage() {
                           className={`flex justify-between gap-2 ${activeAntar ? "font-bold text-saffron-800" : ""}`}
                         >
                           <span>
-                            {m.lord}-{a.lord}
+                            {terms.planet(m.lord)}-{terms.planet(a.lord)}
                             {activeAntar && " ←"}
                           </span>
                           <span className="tabular-nums">
@@ -347,61 +364,51 @@ export default function ChartPage() {
           {tab === "panchang" && (
             <>
               {chart.panchang_today && !("error" in chart.panchang_today) && (
-                <Card title={`Panchang — ${chart.panchang_today.date} (${chart.panchang_today.tz_name})`}>
+                <Card
+                  title={t("panchang.title", {
+                    date: chart.panchang_today.date,
+                    tz: chart.panchang_today.tz_name,
+                  })}
+                >
                   <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-                    <Field label="Tithi" value={`${chart.panchang_today.tithi.paksha} ${chart.panchang_today.tithi.name}`} />
-                    <Field label="Nakshatra" value={`${chart.panchang_today.nakshatra.name} (${chart.panchang_today.nakshatra.lord})`} />
-                    <Field label="Yoga" value={chart.panchang_today.yoga.name} />
-                    <Field label="Karana" value={chart.panchang_today.karana.name} />
-                    <Field label="Var" value={`${chart.panchang_today.weekday} (${chart.panchang_today.var_lord})`} />
-                    <Field label="Sun / Moon in" value={`${chart.panchang_today.sun_sign} / ${chart.panchang_today.moon_sign}`} />
+                    <Field
+                      label={t("panchang.tithi")}
+                      value={`${terms.paksha(chart.panchang_today.tithi.paksha)} ${terms.tithi(chart.panchang_today.tithi.name)}`}
+                    />
+                    <Field
+                      label={t("panchang.nakshatra")}
+                      value={`${terms.nakshatra(chart.panchang_today.nakshatra.name)} (${terms.planet(chart.panchang_today.nakshatra.lord)})`}
+                    />
+                    <Field label={t("panchang.yoga")} value={terms.yogaState(chart.panchang_today.yoga.name)} />
+                    <Field label={t("panchang.karana")} value={terms.karana(chart.panchang_today.karana.name)} />
+                    <Field
+                      label={t("panchang.var")}
+                      value={`${terms.weekday(chart.panchang_today.weekday)} (${terms.planet(chart.panchang_today.var_lord)})`}
+                    />
+                    <Field
+                      label={t("panchang.luminaries")}
+                      value={`${terms.sign(chart.panchang_today.sun_sign)} / ${terms.sign(chart.panchang_today.moon_sign)}`}
+                    />
                   </dl>
                 </Card>
               )}
               {chart.transits_now && (
-                <Card title={`Current Transits — ${chart.transits_now.computed_at.slice(0, 16).replace("T", " ")} UTC`}>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[480px] text-left text-sm">
-                      <thead>
-                        <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
-                          <th className="py-1.5 pr-3">Planet</th>
-                          <th className="py-1.5 pr-3">Sign</th>
-                          <th className="py-1.5 pr-3">Degree</th>
-                          <th className="py-1.5 pr-3">Nakshatra</th>
-                          <th className="py-1.5">State</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(chart.transits_now.positions).map(([p, v]) => (
-                          <tr key={p} className="border-b border-saffron-100/70">
-                            <td className="py-1.5 pr-3 font-semibold">{p}</td>
-                            <td className="py-1.5 pr-3">{v.sign}</td>
-                            <td className="py-1.5 pr-3 tabular-nums">{v.degree}</td>
-                            <td className="py-1.5 pr-3">{v.nakshatra}</td>
-                            <td className="py-1.5 text-xs font-semibold text-saffron-700">
-                              {[v.retrograde ? "Retrograde" : "", v.dignity !== "Neutral" ? v.dignity : ""]
-                                .filter(Boolean)
-                                .join(" · ") || "Direct"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <Card title={t("gochar.title", { at: chart.transits_now.computed_at.slice(0, 16).replace("T", " ") })}>
+                  <TransitTable positions={chart.transits_now.positions} />
                 </Card>
               )}
             </>
           )}
 
           {tab === "yogas" && (
-            <Card title={`Yogas Detected (${chart.yogas.length})`}>
+            <Card title={t("yogas.title", { n: chart.yogas.length })}>
               {chart.yogas.length === 0 ? (
-                <p className="text-sm text-stone-600">No yogas from the tracked set are present in this chart.</p>
+                <p className="text-sm text-stone-600">{t("yogas.none")}</p>
               ) : (
                 <ul className="space-y-2.5">
                   {chart.yogas.map((y) => (
                     <li key={y.name} className="border-l-4 border-gold bg-saffron-50/70 p-2.5">
-                      <p className="text-sm font-bold text-saffron-800">{y.name}</p>
+                      <p className="text-sm font-bold text-saffron-800">{terms.formation(y.name)}</p>
                       <p className="text-xs text-stone-600">{y.basis}</p>
                     </li>
                   ))}
@@ -415,36 +422,79 @@ export default function ChartPage() {
   );
 }
 
+function TransitTable({
+  positions,
+}: {
+  positions: NonNullable<Chart["transits_now"]>["positions"];
+}) {
+  const { t, terms } = useI18n();
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[480px] text-left text-sm">
+        <thead>
+          <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
+            <th className="py-1.5 pr-3">{t("chart.body")}</th>
+            <th className="py-1.5 pr-3">{t("chart.sign")}</th>
+            <th className="py-1.5 pr-3">{t("chart.degree")}</th>
+            <th className="py-1.5 pr-3">{t("chart.nakshatra")}</th>
+            <th className="py-1.5">{t("chart.state")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(positions).map(([p, v]) => {
+            const state = [
+              v.retrograde ? t("chart.retrograde") : "",
+              v.dignity !== "Neutral" ? terms.dignity(v.dignity) : "",
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <tr key={p} className="border-b border-saffron-100/70">
+                <td className="py-1.5 pr-3 font-semibold">{terms.planet(p)}</td>
+                <td className="py-1.5 pr-3">{terms.sign(v.sign)}</td>
+                <td className="py-1.5 pr-3 tabular-nums">{v.degree}</td>
+                <td className="py-1.5 pr-3">{terms.nakshatra(v.nakshatra)}</td>
+                <td className="py-1.5 text-xs font-semibold text-saffron-700">{state || t("chart.direct")}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function PlanetTable({ chart }: { chart: Chart }) {
+  const { t, terms } = useI18n();
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[420px] text-left text-sm">
         <thead>
           <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
-            <th className="py-1.5 pr-3">Planet</th>
-            <th className="py-1.5 pr-3">Sign</th>
-            <th className="py-1.5 pr-3">Degree</th>
-            <th className="py-1.5 pr-3">Hs</th>
-            <th className="py-1.5 pr-3">Nakshatra</th>
-            <th className="py-1.5">Notes</th>
+            <th className="py-1.5 pr-3">{t("chart.body")}</th>
+            <th className="py-1.5 pr-3">{t("chart.sign")}</th>
+            <th className="py-1.5 pr-3">{t("chart.degree")}</th>
+            <th className="py-1.5 pr-3">{t("chart.house")}</th>
+            <th className="py-1.5 pr-3">{t("chart.nakshatra")}</th>
+            <th className="py-1.5">{t("chart.notes")}</th>
           </tr>
         </thead>
         <tbody>
           {PLANET_ORDER.map((pname) => {
             const p = chart.planets[pname];
             const notes = [
-              p.dignity !== "Neutral" ? p.dignity : "",
-              p.retrograde ? "Retrograde" : "",
-              p.combust ? "Combust" : "",
+              p.dignity !== "Neutral" ? terms.dignity(p.dignity) : "",
+              p.retrograde ? t("chart.retrograde") : "",
+              p.combust ? t("chart.combust") : "",
             ].filter(Boolean);
             return (
               <tr key={pname} className="border-b border-saffron-100/70">
-                <td className="py-1.5 pr-3 font-semibold">{pname}</td>
-                <td className="py-1.5 pr-3">{p.sign}</td>
+                <td className="py-1.5 pr-3 font-semibold">{terms.planet(pname)}</td>
+                <td className="py-1.5 pr-3">{terms.sign(p.sign)}</td>
                 <td className="py-1.5 pr-3 tabular-nums">{p.degree}</td>
                 <td className="py-1.5 pr-3">{p.house}</td>
                 <td className="py-1.5 pr-3">
-                  {p.nakshatra.name} ({p.nakshatra.pada})
+                  {terms.nakshatra(p.nakshatra.name)} ({p.nakshatra.pada})
                 </td>
                 <td className="py-1.5 text-xs font-semibold text-saffron-700">{notes.join(" · ") || "—"}</td>
               </tr>

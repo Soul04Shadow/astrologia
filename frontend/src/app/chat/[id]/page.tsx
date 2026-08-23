@@ -67,6 +67,7 @@ export default function ChatPage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [translatedCache, setTranslatedCache] = useState<Record<number, Record<string, string>>>({});
   const [translating, setTranslating] = useState(false);
+  const localeInitialized = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -120,8 +121,9 @@ export default function ChatPage() {
 
   async function handleTranslate(target: "hinglish" | "hi" | "en") {
     setLanguage(target);
-    if (messages.length === 0) return;
-    const toTranslate = messages.filter((m) => !translatedCache[m.id]?.[target]);
+    const assistantOnly = messages.filter((m) => m.role === "assistant");
+    if (assistantOnly.length === 0) return;
+    const toTranslate = assistantOnly.filter((m) => !translatedCache[m.id]?.[target]);
     if (toTranslate.length === 0) return;
     setTranslating(true);
     try {
@@ -148,14 +150,20 @@ export default function ChatPage() {
     }
   }
 
-  // AppShell locale sync -> retro-translate visible session
+  // AppShell locale sync -> retro-translate visible session.
+  // Skips the first run: restoring a saved locale on page open must NOT
+  // auto-translate history and burn API quota without an explicit action.
   useEffect(() => {
+    if (!localeInitialized.current) {
+      localeInitialized.current = true;
+      return;
+    }
     if (messages.length === 0) return;
     const mapped: "hi" | "en" | "hinglish" = locale === "hi" ? "hi" : locale === "en" ? "en" : "hinglish";
-    // only auto-translate if language tab differs from mapped locale? still trigger to keep visible bubbles in sync
-    if (messages.some((m) => !translatedCache[m.id]?.[mapped])) {
-      handleTranslate(mapped);
-    }
+    const pending = messages.some(
+      (m) => m.role === "assistant" && !translatedCache[m.id]?.[mapped],
+    );
+    if (pending) handleTranslate(mapped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
 
@@ -195,7 +203,7 @@ export default function ChatPage() {
   }
 
   async function handleDelete(sid: number) {
-    if (!window.confirm("Delete this chat? Messages will be lost.")) return;
+    if (!window.confirm(t("chat.delete_confirm"))) return;
     try {
       await api.deleteSession(id, sid);
       setSessions((prev) => prev.filter((s) => s.id !== sid));
@@ -336,7 +344,7 @@ export default function ChatPage() {
           onClick={handleNewChat}
           className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-saffron-600 px-3 py-2 text-sm font-bold text-white hover:bg-saffron-700"
         >
-          <Plus size={14} /> New chat
+          <Plus size={14} /> {t("chat.new")}
         </button>
         <div className="flex-1 space-y-1 overflow-y-auto pr-1">
           {sessions.map((s) => (
@@ -347,7 +355,7 @@ export default function ChatPage() {
               <button onClick={() => handleSelectSession(s.id)} className="flex-1 truncate text-left">
                 {s.title}
               </button>
-              <button onClick={() => handleRename(s.id, s.title)} className="opacity-0 group-hover:opacity-100 p-1 text-stone-500 hover:text-saffron-700" aria-label="Rename">
+              <button onClick={() => handleRename(s.id, s.title)} className="opacity-0 group-hover:opacity-100 p-1 text-stone-500 hover:text-saffron-700" aria-label={t("chat.rename")}>
                 <Pencil size={12} />
               </button>
               <button onClick={() => handleDelete(s.id)} className="opacity-0 group-hover:opacity-100 p-1 text-stone-500 hover:text-red-600" aria-label="Delete">
@@ -355,7 +363,7 @@ export default function ChatPage() {
               </button>
             </div>
           ))}
-          {sessions.length === 0 && <p className="p-3 text-xs text-stone-500">No chats yet</p>}
+          {sessions.length === 0 && <p className="p-3 text-xs text-stone-500">{t("chat.none")}</p>}
         </div>
       </aside>
 
@@ -398,7 +406,7 @@ export default function ChatPage() {
         {/* mobile new chat */}
         <div className="flex gap-2 py-2 sm:hidden">
           <button onClick={handleNewChat} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white">
-            <Plus size={12} /> New chat
+            <Plus size={12} /> {t("chat.new")}
           </button>
           <select value={activeSessionId ?? ""} onChange={(e) => handleSelectSession(Number(e.target.value))} className="flex-1 rounded-lg border border-goldline bg-panel px-2 py-2 text-xs">
             {sessions.map((s) => (
@@ -410,7 +418,7 @@ export default function ChatPage() {
         </div>
 
         <div className="border-b border-goldline/60 bg-saffron-50/60 px-3 py-1.5 text-center text-[11px] font-semibold text-saffron-800">
-          {translating ? "Translating…" : langNote}
+          {translating ? t("chat.translating") : langNote}
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto py-4 pr-1">
@@ -419,7 +427,8 @@ export default function ChatPage() {
           )}
 
           {messages.map((m, idx) => {
-            const display = translatedCache[m.id]?.[language] ?? m.content;
+            const display =
+              m.role === "assistant" ? (translatedCache[m.id]?.[language] ?? m.content) : m.content;
             return m.role === "user" ? (
               <div key={m.id} className="flex items-end justify-end gap-2">
                 <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-saffron-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">

@@ -3,12 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, type PlaceResult } from "@/lib/api";
-
-const inputCls =
-  "w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100";
-const labelCls = "mb-1.5 block text-sm font-semibold";
+import { useI18n } from "@/lib/i18n";
 
 export default function NewProfilePage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("1995-01-01");
@@ -43,9 +41,15 @@ export default function NewProfilePage() {
   async function resolvePlace(): Promise<PlaceResult> {
     if (selected) return selected;
     const res = await fetch(`${api.base}/api/resolve-place?q=${encodeURIComponent(placeQuery)}`);
-    if (!res.ok) throw new Error(`Place "${placeQuery}" not found — pick from suggestions`);
+    if (!res.ok) throw new Error(t("form.notfound", { q: placeQuery }));
     const direct = await res.json();
-    return { display_name: placeQuery, name: placeQuery, latitude: direct.latitude, longitude: direct.longitude, tz_name: direct.tz_name };
+    return {
+      display_name: placeQuery,
+      name: placeQuery,
+      latitude: direct.latitude,
+      longitude: direct.longitude,
+      tz_name: direct.tz_name,
+    };
   }
 
   async function submit(e: React.FormEvent) {
@@ -71,21 +75,23 @@ export default function NewProfilePage() {
     }
   }
 
+  const inputCls =
+    "w-full rounded-lg border border-goldline bg-panel px-3 py-2.5 text-sm outline-none focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100";
+  const labelCls = "mb-1.5 block text-xs font-bold uppercase tracking-wide text-saffron-700";
+
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="text-2xl font-bold">New Birth Profile</h1>
-      <p className="mt-1 text-sm text-muted">
-        Enter exact birth details. Time zone is detected automatically from the birthplace.
-      </p>
+      <h1 className="text-xl font-bold">{t("form.title")}</h1>
+      <p className="mt-1 text-sm text-stone-600">{t("form.sub")}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-5">
         <div>
-          <label className={labelCls}>Full name</label>
+          <label className={labelCls}>{t("form.name")}</label>
           <input
             className={inputCls}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., Ramesh Sharma"
+            placeholder={t("form.name_ph")}
             required
             minLength={1}
           />
@@ -93,7 +99,7 @@ export default function NewProfilePage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Date of birth</label>
+            <label className={labelCls}>{t("form.dob")}</label>
             <input
               type="date"
               className={inputCls}
@@ -103,7 +109,7 @@ export default function NewProfilePage() {
             />
           </div>
           <div>
-            <label className={labelCls}>Time of birth (24h)</label>
+            <label className={labelCls}>{t("form.tob")}</label>
             <input
               type="time"
               className={inputCls}
@@ -115,7 +121,7 @@ export default function NewProfilePage() {
         </div>
 
         <div className="relative">
-          <label className={labelCls}>Place of birth</label>
+          <label className={labelCls}>{t("form.place")}</label>
           <input
             className={inputCls}
             value={placeQuery}
@@ -123,19 +129,19 @@ export default function NewProfilePage() {
               setPlaceQuery(e.target.value);
               setSelected(null);
             }}
-            placeholder="Type a city, e.g., Ujjain"
+            placeholder={t("form.place_ph")}
             required
           />
           {searching && (
-            <span className="absolute right-3 top-9 text-xs text-muted">searching…</span>
+            <span className="absolute right-3 top-9 text-xs text-stone-500">{t("form.searching")}</span>
           )}
           {results.length > 0 && (
-            <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-stone-200 bg-white shadow-lg">
+            <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-goldline bg-panel shadow-lg">
               {results.map((r, i) => (
                 <li key={i}>
                   <button
                     type="button"
-                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-saffron-50"
+                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-saffron-100"
                     onClick={() => {
                       setSelected(r);
                       setPlaceQuery(r.display_name);
@@ -143,30 +149,29 @@ export default function NewProfilePage() {
                     }}
                   >
                     <span className="font-semibold">{r.name}</span>
-                    <span className="block text-xs text-muted">{r.display_name}</span>
+                    <span className="block truncate text-xs text-stone-500">{r.display_name}</span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
           {selected && (
-            <p className="mt-1.5 text-xs font-semibold text-saffron-700">
-              ✓ {selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)} · {selected.tz_name}
+            <p className="mt-1.5 text-xs font-bold text-saffron-700">
+              {t("form.selected")} · {selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)} ·{" "}
+              {selected.tz_name}
             </p>
           )}
         </div>
 
         {error && (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </p>
+          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
         )}
 
         <button
           disabled={saving}
-          className="w-full rounded-lg bg-saffron-600 py-3 font-bold text-white hover:bg-saffron-700 disabled:opacity-60"
+          className="w-full rounded-lg bg-saffron-600 py-3 text-sm font-bold text-white hover:bg-saffron-700 disabled:opacity-60"
         >
-          {saving ? "Generating…" : "Generate Kundli"}
+          {saving ? t("form.submitting") : t("form.submit")}
         </button>
       </form>
     </div>

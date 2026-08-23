@@ -1,0 +1,33 @@
+# chat-sessions-translation — Evidence Summary
+
+- **Branch:** `fix/chat-sessions` (from `harden/v1-a:444e4a8`)
+- **Commit:** `7cbc3f9 feat(chat): per-profile sessions + retro-translation + session-aware continuity` (11 files inc. README/docs, atop 444e4a8) — amended to include docs
+- **Date:** 2026-08-23
+- **Migration note:** `ChatSession` table + `ChatMessage.session_id` FK CASCADE nullable indexed; `Profile.sessions` / `ChatSession.messages` cascade all delete-orphan; `init_db()` does `Base.metadata.create_all` + column-exists check (`ALTER TABLE` + index) idempotent; `_migrate_existing_messages()` ensures per profile default "First consultation" then `UPDATE chat_messages SET session_id=default WHERE session_id IS NULL`; called via `lifespan` + `init_db`. Existing messages preserved (verified: orphan assigned to default).
+- **API contract:**
+  - `POST /api/profiles/{id}/sessions` (201, title 80, default "New chat" / first 40 chars for first message)
+  - `GET /api/profiles/{id}/sessions` ordered `updated_at DESC` (ensures default if empty)
+  - `GET /api/profiles/{id}/sessions/{sid}/messages` isolated
+  - `PATCH /api/profiles/{id}/sessions/{sid}` rename
+  - `DELETE /api/profiles/{id}/sessions/{sid}` cascade deletes messages
+  - `POST /api/chat/{id}?session_id=` session-scoped history + `updated_at` touch, alias without param creates/uses default
+  - `POST /api/translate` `{text, target_language: en|hi|hinglish, provider?}` → `{translated}` via `complete_chat` + `provider_config` preserving markdown/dates/bullets
+- **Frontend:**
+  - `lib/api.ts` adds `listSessions/createSession/renameSession/deleteSession/sessionHistory/translate`
+  - `app/chat/[id]/page.tsx` sidebar with New chat/rename/delete, `useSearchParams`/`useRouter` `?s=` deep link, `activeSessionId` sync, `translatedCache: Record<number,Record<string,string>>` + `translating` + `handleTranslate` batch `Promise.all`, Markdown re-render with cache, `AppShell` locale `useEffect` sync triggers batch
+  - `dictionaries.ts:makeTerms` still re-renders via `LanguageProvider useMemo([locale])`
+- **Tests + build:**
+  - `backend: python -m pytest` 24 passed (21 original D1/D9/dasha/navamsa/yogas/panchang/pdf +3 new: session_crud, isolation, translate_mocked)
+  - `frontend: npm.cmd run build` green (`Compiled successfully`, 5/5 static pages)
+  - Logs: `.omo/evidence/task-6-chat-sessions-translation.log`, `pytest-task6.log`, `build-task6.log`, `task-1..5` per todo
+- **UI checklist (manual QA):**
+  - [x] Create profile → `GET /api/profiles/{id}/sessions` returns default
+  - [x] New chat button creates second session appears in sidebar
+  - [x] Chat in s1 doesn't appear in s2 (isolation verified)
+  - [x] Switching `?s=` shows isolated histories, back restores
+  - [x] Click हिंदी re-renders all bubbles in Hindi Devanagari via Markdown (no raw **), toggling back hits cache no network, spinner while batch
+  - [x] Top-right EN↔हिंदी toggles AppShell nav/chart terms and also retro-translates visible chat
+  - [x] PDF still works (test_report_pdf passed)
+  - [x] Single-thread fallback `/chat/{id}` without `?s=` auto-selects default/latest
+- **Guardrails:** no engine math changes, no auth/hosting, no `content_hi` columns (cache only), no heavy deps, no `.env`/`app.db`/`.next`/`__pycache__` committed
+- **Run:** `start-backend.bat` / `start-frontend.bat` unchanged, `backend/.env.example` still valid, no new env needed
