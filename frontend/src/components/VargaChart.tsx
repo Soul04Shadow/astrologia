@@ -44,7 +44,7 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
     const house = delta + 1;
     (housePlanets[house] ??= []).push(p);
   }
-  const signForHouse = (h: number) => ((lagnaSignIndex + h - 2) % 12) + 1;
+  const signForHouse = (h: number) => ((lagnaSignIndex + h - 1) % 12) + 1;
 
   return (
     <svg
