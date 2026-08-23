@@ -119,6 +119,15 @@ export interface ChatMessageItem {
   provider?: string | null;
   language?: string | null;
   created_at: string;
+  session_id?: number | null;
+}
+
+export interface ChatSession {
+  id: number;
+  profile_id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -164,4 +173,30 @@ export const api = {
     }).then((r) => jsonOrThrow<{ name: string; chart: Chart }>(r)),
   history: (id: number | string) =>
     fetch(`${BASE}/api/profiles/${id}/messages`).then((r) => jsonOrThrow<ChatMessageItem[]>(r)),
+  listSessions: (profileId: number | string) =>
+    fetch(`${BASE}/api/profiles/${profileId}/sessions`).then((r) => jsonOrThrow<ChatSession[]>(r)),
+  createSession: (profileId: number | string, title?: string) =>
+    fetch(`${BASE}/api/profiles/${profileId}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: title ?? "New chat" }),
+    }).then((r) => jsonOrThrow<ChatSession>(r)),
+  renameSession: (profileId: number | string, sid: number | string, title: string) =>
+    fetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    }).then((r) => jsonOrThrow<ChatSession>(r)),
+  deleteSession: (profileId: number | string, sid: number | string) =>
+    fetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}`, { method: "DELETE" }).then((r) => r.json()),
+  sessionHistory: (profileId: number | string, sid: number | string) =>
+    fetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}/messages`).then((r) =>
+      jsonOrThrow<ChatMessageItem[]>(r),
+    ),
+  translate: (text: string, target_language: string, provider?: string | null) =>
+    fetch(`${BASE}/api/translate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, target_language, provider: provider ?? null }),
+    }).then((r) => jsonOrThrow<{ translated: string }>(r)),
 };

@@ -66,3 +66,7 @@ We evaluated all four candidates you shortlisted (Feb–Aug 2026 cards):
 | 11-47/SmolLM-135M-Tarot-Zodiac | 135M toy model |
 
 A strong general model grounded with exact Swiss-Ephemeris chart data outperforms all of them — this matches your own POC testing (Gemini Flash beat the fine-tunes).
+
+## Translation & sessions (no extra key)
+
+Chat retro-translation (`POST /api/translate`) re-uses the same `LLM_PROVIDER` key/model via `provider_config` + `complete_chat` — no new service or key needed. Per-profile chat sessions (`/api/profiles/{id}/sessions`, `?session_id=` on `/api/chat/{id}`) share the same DB and auth model.

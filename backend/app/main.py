@@ -7,13 +7,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.db import init_db
-from app.routers import charts, chat, misc, profiles
+from app.db import _migrate_existing_messages, init_db
+from app.routers import charts, chat, misc, profiles, sessions, translate
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    try:
+        _migrate_existing_messages()
+    except Exception:
+        pass
     yield
 
 
@@ -33,6 +37,8 @@ app.include_router(misc.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
 app.include_router(charts.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(sessions.router, prefix="/api")
+app.include_router(translate.router, prefix="/api")
 
 
 @app.exception_handler(ValueError)

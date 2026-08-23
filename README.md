@@ -6,7 +6,8 @@ A private-first, full-stack Vedic astrology web app: exact Swiss-Ephemeris kundl
 
 - **Exact calculations** (Lahiri sidereal, Swiss Ephemeris): D1 rasi chart with lagna, nakshatra/pada, dignities, retrograde & combust flags · Vimshottari maha/antardasha timeline with current-period detection · Navamsa D9 with vargottama marking · live transits (gochar) · panchang (tithi/nakshatra/yoga/karana/var) · yoga detection (Gajakesari, Budhaditya, Neecha Bhanga Raja, Panch Mahapurush, Dhana)
 - **Grounded AI consultations** in English / हिंदी / Hinglish via any OpenAI-compatible provider (Gemini free tier, Groq, OpenRouter, LM Studio, Ollama) with strict safety guardrails
-- **Saved profiles** for returning clients, persisted chat history per person
+- **Saved profiles** for returning clients, per-profile **chat sessions** (multiple threads per kundli with New chat / rename / delete, `?s=` deep links, isolated histories)
+- **Retro-translation**: language buttons (Hinglish / हिंदी / English) re-render all visible bubbles via `/api/translate` (uses same LLM provider, Markdown-preserving, cached per message) and global EN↔हिंदी toggle syncs `AppShell` + chart terms (`makeTerms`) and chat bubbles
 - **PDF report downloads** (full kundli report) + SVG/PNG chart downloads
 
 ## Quick start

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, ChevronLeft, Copy, Sparkles, UserRound } from "lucide-react";
-import { api, type ChatMessageItem, type Profile } from "@/lib/api";
+import { Check, ChevronLeft, Copy, Pencil, Plus, Sparkles, Trash2, UserRound } from "lucide-react";
+import { api, type ChatMessageItem, type ChatSession, type Profile } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
 const LANGUAGES = [
@@ -19,11 +19,6 @@ const LANGUAGES = [
 interface ProviderInfo {
   id: string;
   ready: boolean;
-}
-
-interface LiveMessage {
-  role: "user" | "assistant";
-  content: string;
 }
 
 const mdComponents: Components = {
@@ -53,9 +48,13 @@ const mdComponents: Components = {
 export default function ChatPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { t, locale } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(searchParams.get("s"));
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState<"hinglish" | "hi" | "en">("hinglish");
   const [provider, setProvider] = useState<string>("");
@@ -66,15 +65,20 @@ export default function ChatPage() {
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const [error, setError] = useState("");
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [translatedCache, setTranslatedCache] = useState<Record<number, Record<string, string>>>({});
+  const [translating, setTranslating] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // sync URL ?s= to state
   useEffect(() => {
-    Promise.all([api.getProfile(id), api.history(id)])
-      .then(([p, h]) => {
-        setProfile(p);
-        setMessages(h);
-      })
+    setActiveSessionId(searchParams.get("s"));
+  }, [searchParams]);
+
+  // load profile and providers + sessions
+  useEffect(() => {
+    api.getProfile(id)
+      .then((p) => setProfile(p))
       .catch((e) => setError(String(e)));
     fetch(`${api.base}/api/providers`)
       .then((r) => r.json())
@@ -84,11 +88,76 @@ export default function ChatPage() {
         if (ready) setProvider(ready.id);
       })
       .catch(() => {});
+    api
+      .listSessions(id)
+      .then((sess) => {
+        setSessions(sess);
+        const urlSid = searchParams.get("s");
+        if (urlSid && sess.find((s) => String(s.id) === urlSid)) {
+          setActiveSessionId(urlSid);
+        } else if (sess.length > 0) {
+          const first = String(sess[0].id);
+          setActiveSessionId(first);
+          router.push(`/chat/${id}?s=${first}`);
+        }
+      })
+      .catch((e) => setError(String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // load session history when activeSessionId changes
+  useEffect(() => {
+    if (!activeSessionId) return;
+    api
+      .sessionHistory(id, activeSessionId)
+      .then((h) => setMessages(h))
+      .catch((e) => setError(String(e)));
+  }, [id, activeSessionId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, streamText, waitingFirstToken, pendingUser]);
+
+  async function handleTranslate(target: "hinglish" | "hi" | "en") {
+    setLanguage(target);
+    if (messages.length === 0) return;
+    const toTranslate = messages.filter((m) => !translatedCache[m.id]?.[target]);
+    if (toTranslate.length === 0) return;
+    setTranslating(true);
+    try {
+      const results = await Promise.all(
+        toTranslate.map(async (m) => {
+          try {
+            const r = await api.translate(m.content, target, provider || null);
+            return { id: m.id, translated: r.translated };
+          } catch {
+            return { id: m.id, translated: m.content };
+          }
+        }),
+      );
+      setTranslatedCache((prev) => {
+        const next = { ...prev };
+        for (const { id: mid, translated } of results) {
+          if (!next[mid]) next[mid] = {};
+          next[mid][target] = translated;
+        }
+        return next;
+      });
+    } finally {
+      setTranslating(false);
+    }
+  }
+
+  // AppShell locale sync -> retro-translate visible session
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const mapped: "hi" | "en" | "hinglish" = locale === "hi" ? "hi" : locale === "en" ? "en" : "hinglish";
+    // only auto-translate if language tab differs from mapped locale? still trigger to keep visible bubbles in sync
+    if (messages.some((m) => !translatedCache[m.id]?.[mapped])) {
+      handleTranslate(mapped);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
 
   function autoGrow() {
     const ta = taRef.current;
@@ -97,10 +166,81 @@ export default function ChatPage() {
     ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
   }
 
+  async function handleNewChat() {
+    try {
+      const sess = await api.createSession(id, "New chat");
+      setSessions((prev) => [sess, ...prev]);
+      router.push(`/chat/${id}?s=${sess.id}`);
+      setActiveSessionId(String(sess.id));
+      setMessages([]);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  function handleSelectSession(sid: number) {
+    router.push(`/chat/${id}?s=${sid}`);
+    setActiveSessionId(String(sid));
+  }
+
+  async function handleRename(sid: number, current: string) {
+    const next = window.prompt("Rename session", current);
+    if (!next || next.trim() === current) return;
+    try {
+      const updated = await api.renameSession(id, sid, next.trim().slice(0, 80));
+      setSessions((prev) => prev.map((s) => (s.id === sid ? updated : s)));
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function handleDelete(sid: number) {
+    if (!window.confirm("Delete this chat? Messages will be lost.")) return;
+    try {
+      await api.deleteSession(id, sid);
+      setSessions((prev) => prev.filter((s) => s.id !== sid));
+      if (String(sid) === activeSessionId) {
+        const remaining = sessions.filter((s) => s.id !== sid);
+        if (remaining.length > 0) {
+          router.push(`/chat/${id}?s=${remaining[0].id}`);
+          setActiveSessionId(String(remaining[0].id));
+        } else {
+          // reload list to get default
+          const fresh = await api.listSessions(id);
+          setSessions(fresh);
+          if (fresh.length > 0) {
+            router.push(`/chat/${id}?s=${fresh[0].id}`);
+            setActiveSessionId(String(fresh[0].id));
+          } else {
+            setActiveSessionId(null);
+            setMessages([]);
+          }
+        }
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   async function send(e?: React.FormEvent) {
     e?.preventDefault();
     const text = input.trim();
     if (!text || streaming) return;
+
+    let sid = activeSessionId;
+    if (!sid) {
+      try {
+        const sess = await api.createSession(id, text.slice(0, 40) || "New chat");
+        setSessions((prev) => [sess, ...prev]);
+        sid = String(sess.id);
+        setActiveSessionId(sid);
+        router.push(`/chat/${id}?s=${sid}`);
+      } catch (err) {
+        setError(String(err));
+        return;
+      }
+    }
+
     setInput("");
     if (taRef.current) taRef.current.style.height = "auto";
     setError("");
@@ -110,7 +250,7 @@ export default function ChatPage() {
     setWaitingFirstToken(true);
 
     try {
-      const res = await fetch(`${api.base}/api/chat/${id}`, {
+      const res = await fetch(`${api.base}/api/chat/${id}?session_id=${sid}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, language, provider: provider || null }),
@@ -150,7 +290,7 @@ export default function ChatPage() {
 
       setMessages((prev) => [
         ...prev,
-        { id: Date.now(), role: "user", content: text, language, created_at: new Date().toISOString() },
+        { id: Date.now(), role: "user", content: text, language, created_at: new Date().toISOString(), session_id: Number(sid) },
         {
           id: Date.now() + 1,
           role: "assistant",
@@ -158,8 +298,11 @@ export default function ChatPage() {
           provider,
           language,
           created_at: new Date().toISOString(),
+          session_id: Number(sid),
         },
       ]);
+      // refresh sessions order (updated_at)
+      api.listSessions(id).then(setSessions).catch(() => {});
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err));
     } finally {
@@ -186,164 +329,190 @@ export default function ChatPage() {
   }, [language, locale]);
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] max-w-3xl flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-goldline bg-panel/60 px-1 pb-2.5 pt-1">
-        <div>
-          <Link
-            href={`/profiles/${id}`}
-            className="flex items-center gap-0.5 text-xs font-semibold text-saffron-700 hover:underline"
-          >
-            <ChevronLeft size={13} /> {t("chat.back")}
-          </Link>
-          <h1 className="text-lg font-bold">{t("chat.title", { name: profile?.name ?? "…" })}</h1>
+    <div className="mx-auto flex h-[calc(100vh-8.5rem)] max-w-6xl gap-4">
+      {/* Session sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col rounded-xl border border-goldline bg-panel p-2 sm:flex">
+        <button
+          onClick={handleNewChat}
+          className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-saffron-600 px-3 py-2 text-sm font-bold text-white hover:bg-saffron-700"
+        >
+          <Plus size={14} /> New chat
+        </button>
+        <div className="flex-1 space-y-1 overflow-y-auto pr-1">
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              className={`group flex items-center gap-1 rounded-lg px-2 py-2 text-sm ${String(s.id) === activeSessionId ? "bg-saffron-100 font-semibold text-saffron-800" : "hover:bg-saffron-50 text-stone-700"}`}
+            >
+              <button onClick={() => handleSelectSession(s.id)} className="flex-1 truncate text-left">
+                {s.title}
+              </button>
+              <button onClick={() => handleRename(s.id, s.title)} className="opacity-0 group-hover:opacity-100 p-1 text-stone-500 hover:text-saffron-700" aria-label="Rename">
+                <Pencil size={12} />
+              </button>
+              <button onClick={() => handleDelete(s.id)} className="opacity-0 group-hover:opacity-100 p-1 text-stone-500 hover:text-red-600" aria-label="Delete">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+          {sessions.length === 0 && <p className="p-3 text-xs text-stone-500">No chats yet</p>}
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            className="rounded-lg border border-goldline bg-panel px-2 py-1.5 text-xs font-bold capitalize text-stone-600"
-            aria-label="AI provider"
-          >
-            {providers.map((p) => (
-              <option key={p.id} value={p.id} disabled={!p.ready}>
-                {p.id}
-                {!p.ready && " · " + t("menu.nokey")}
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-goldline bg-panel/60 px-1 pb-2.5 pt-1">
+          <div>
+            <Link href={`/profiles/${id}`} className="flex items-center gap-0.5 text-xs font-semibold text-saffron-700 hover:underline">
+              <ChevronLeft size={13} /> {t("chat.back")}
+            </Link>
+            <h1 className="text-lg font-bold">{t("chat.title", { name: profile?.name ?? "…" })}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              className="rounded-lg border border-goldline bg-panel px-2 py-1.5 text-xs font-bold capitalize text-stone-600"
+              aria-label="AI provider"
+            >
+              {providers.map((p) => (
+                <option key={p.id} value={p.id} disabled={!p.ready}>
+                  {p.id}
+                  {!p.ready && " · " + t("menu.nokey")}
+                </option>
+              ))}
+            </select>
+            <div className="flex rounded-lg border border-goldline bg-panel p-0.5">
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => handleTranslate(l.id)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${language === l.id ? "bg-saffron-600 text-white" : "text-stone-600 hover:bg-saffron-100"}`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* mobile new chat */}
+        <div className="flex gap-2 py-2 sm:hidden">
+          <button onClick={handleNewChat} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white">
+            <Plus size={12} /> New chat
+          </button>
+          <select value={activeSessionId ?? ""} onChange={(e) => handleSelectSession(Number(e.target.value))} className="flex-1 rounded-lg border border-goldline bg-panel px-2 py-2 text-xs">
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
               </option>
             ))}
           </select>
-          <div className="flex rounded-lg border border-goldline bg-panel p-0.5">
-            {LANGUAGES.map((l) => (
-              <button
-                key={l.id}
-                onClick={() => setLanguage(l.id)}
-                className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${
-                  language === l.id ? "bg-saffron-600 text-white" : "text-stone-600 hover:bg-saffron-100"
-                }`}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
         </div>
-      </div>
 
-      <div className="border-b border-goldline/60 bg-saffron-50/60 px-3 py-1.5 text-center text-[11px] font-semibold text-saffron-800">
-        {langNote}
-      </div>
+        <div className="border-b border-goldline/60 bg-saffron-50/60 px-3 py-1.5 text-center text-[11px] font-semibold text-saffron-800">
+          {translating ? "Translating…" : langNote}
+        </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto py-4 pr-1">
-        {messages.length === 0 && !streaming && !pendingUser && (
-          <div className="rounded-xl border border-dashed border-gold bg-saffron-50/70 p-6 text-center text-sm text-stone-600">
-            {t("chat.empty")}
-          </div>
-        )}
+        <div className="flex-1 space-y-4 overflow-y-auto py-4 pr-1">
+          {messages.length === 0 && !streaming && !pendingUser && (
+            <div className="rounded-xl border border-dashed border-gold bg-saffron-50/70 p-6 text-center text-sm text-stone-600">{t("chat.empty")}</div>
+          )}
 
-        {messages.map((m, idx) =>
-          m.role === "user" ? (
-            <div key={m.id} className="flex items-end justify-end gap-2">
+          {messages.map((m, idx) => {
+            const display = translatedCache[m.id]?.[language] ?? m.content;
+            return m.role === "user" ? (
+              <div key={m.id} className="flex items-end justify-end gap-2">
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-saffron-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
+                  {display}
+                </div>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-panel text-saffron-700">
+                  <UserRound size={15} />
+                </span>
+              </div>
+            ) : (
+              <div key={m.id} className="group flex items-start gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-700">
+                  <Sparkles size={15} />
+                </span>
+                <div className="max-w-[88%]">
+                  <div className="prose-chat rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm text-ink shadow-sm">
+                    <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{display}</Markdown>
+                  </div>
+                  <button
+                    onClick={() => copyMessage(display, idx)}
+                    className="mt-1 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-stone-500 opacity-0 transition group-hover:opacity-100 hover:bg-saffron-100"
+                  >
+                    {copiedIdx === idx ? <Check size={11} /> : <Copy size={11} />}
+                    {copiedIdx === idx ? (locale === "hi" ? "कॉपी हो गया" : "Copied") : locale === "hi" ? "कॉपी" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {pendingUser && (
+            <div className="flex items-end justify-end gap-2 opacity-90">
               <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-saffron-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
-                {m.content}
+                {pendingUser}
               </div>
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-panel text-saffron-700">
                 <UserRound size={15} />
               </span>
             </div>
-          ) : (
-            <div key={m.id} className="group flex items-start gap-2">
+          )}
+
+          {(streaming || waitingFirstToken) && (
+            <div className="flex items-start gap-2">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-700">
                 <Sparkles size={15} />
               </span>
               <div className="max-w-[88%]">
-                <div className="prose-chat rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm text-ink shadow-sm">
-                  <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                    {m.content}
-                  </Markdown>
+                <div className="min-h-[2.75rem] rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm shadow-sm">
+                  {streamText ? (
+                    <div className="prose-chat">
+                      <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{streamText}</Markdown>
+                      <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-saffron-600 align-middle" />
+                    </div>
+                  ) : (
+                    <span className="flex gap-1 py-1.5" aria-label="thinking">
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-saffron-500" style={{ animationDelay: `${i * 150}ms` }} />
+                      ))}
+                    </span>
+                  )}
                 </div>
-                <button
-                  onClick={() => copyMessage(m.content, idx)}
-                  className="mt-1 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-stone-500 opacity-0 transition group-hover:opacity-100 hover:bg-saffron-100"
-                >
-                  {copiedIdx === idx ? <Check size={11} /> : <Copy size={11} />}
-                  {copiedIdx === idx ? (locale === "hi" ? "कॉपी हो गया" : "Copied") : locale === "hi" ? "कॉपी" : "Copy"}
-                </button>
               </div>
             </div>
-          ),
-        )}
+          )}
 
-        {pendingUser && (
-          <div className="flex items-end justify-end gap-2 opacity-90">
-            <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-saffron-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
-              {pendingUser}
-            </div>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-panel text-saffron-700">
-              <UserRound size={15} />
-            </span>
-          </div>
-        )}
+          {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+          <div ref={bottomRef} />
+        </div>
 
-        {(streaming || waitingFirstToken) && (
-          <div className="flex items-start gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-700">
-              <Sparkles size={15} />
-            </span>
-            <div className="max-w-[88%]">
-              <div className="min-h-[2.75rem] rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm shadow-sm">
-                {streamText ? (
-                  <div className="prose-chat">
-                    <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                      {streamText}
-                    </Markdown>
-                    <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-saffron-600 align-middle" />
-                  </div>
-                ) : (
-                  <span className="flex gap-1 py-1.5" aria-label="thinking">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="h-1.5 w-1.5 animate-bounce rounded-full bg-saffron-500"
-                        style={{ animationDelay: `${i * 150}ms` }}
-                      />
-                    ))}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
-        )}
-        <div ref={bottomRef} />
+        <form onSubmit={send} className="flex items-end gap-2 border-t border-goldline pt-3">
+          <textarea
+            ref={taRef}
+            rows={1}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              autoGrow();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            placeholder={t("chat.placeholder")}
+            disabled={streaming}
+            className="max-h-[140px] flex-1 resize-none rounded-xl border border-goldline bg-panel px-4 py-3 text-sm outline-none focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100 disabled:opacity-60"
+          />
+          <button disabled={streaming || !input.trim()} className="flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-600 px-5 text-sm font-bold text-white hover:bg-saffron-700 disabled:opacity-50">
+            {t("chat.send")}
+          </button>
+        </form>
       </div>
-
-      <form onSubmit={send} className="flex items-end gap-2 border-t border-goldline pt-3">
-        <textarea
-          ref={taRef}
-          rows={1}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            autoGrow();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          placeholder={t("chat.placeholder")}
-          disabled={streaming}
-          className="max-h-[140px] flex-1 resize-none rounded-xl border border-goldline bg-panel px-4 py-3 text-sm outline-none focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100 disabled:opacity-60"
-        />
-        <button
-          disabled={streaming || !input.trim()}
-          className="flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-600 px-5 text-sm font-bold text-white hover:bg-saffron-700 disabled:opacity-50"
-        >
-          {t("chat.send")}
-        </button>
-      </form>
     </div>
   );
 }

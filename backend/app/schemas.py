@@ -53,6 +53,18 @@ class ChatMessageOut(BaseModel):
     provider: str | None = None
     language: str | None = None
     created_at: datetime
+    session_id: int | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class ChatSessionOut(BaseModel):
+    id: int
+    profile_id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
