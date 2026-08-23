@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.6-flash"
 
     lmstudio_base_url: str = "http://localhost:1234/v1"
     lmstudio_api_key: str = "lm-studio"

@@ -52,9 +52,9 @@ Or `openrouter/free` auto-router.
    ```
    LLM_PROVIDER=gemini
    GEMINI_API_KEY=AIza...
-   GEMINI_MODEL=gemini-2.5-flash
+   GEMINI_MODEL=gemini-3.6-flash
    ```
-Tool-loop disabled for Gemini (thought_signature required) — uses static grounded prompt only. Use Groq/OpenRouter/Zen/Nvidia for deep `🔧 tool_call` reasoning.
+Live free catalog (2026-08, `ai.google.dev/gemini-api/docs/models`): `gemini-3.7-flash` (newest, half price), `gemini-3.6-flash` (stable), `gemini-3.5-flash` (GA), `gemini-3.5-flash-lite` (cheapest). Pick one via `GEMINI_MODEL` or the picker (`Zen/Gemini` dropdown). Tool-loop disabled for Gemini (thought_signature required) — uses static grounded prompt only. Use Groq/OpenRouter/Zen/Nvidia for deep `🔧 tool_call` reasoning.
 
 ## 6. LM Studio (fully offline fallback)
 
