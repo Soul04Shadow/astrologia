@@ -123,12 +123,14 @@ def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(N
         try:
             yield f"data: {json.dumps({'event': 'start', 'provider': saved_provider})}\n\n"
             outer_messages = list(messages)  # copy to allow tool additions
-            # tool-loop up to 5 turns
+            # Gemini OpenAI endpoint requires thought_signature for tools → disable tool-loop for gemini for now (fallback to static grounded prompt)
+            use_tools = saved_provider != "gemini"
+            # tool-loop up to 5 turns (disabled for gemini)
             for turn in range(5):
                 got_tool_calls = None
                 # buffer delta for this turn
                 turn_had_delta = False
-                async for event in _safe_stream(outer_messages, with_tools=True):
+                async for event in _safe_stream(outer_messages, with_tools=use_tools):
                     # handle backward compat: string delta
                     if isinstance(event, str):
                         full_reply.append(event)
