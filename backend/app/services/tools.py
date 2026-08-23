@@ -225,6 +225,7 @@ async def execute(name: str, args: dict | None, chart: dict) -> str:
             "lagna": chart.get("lagna"),
             "moon_rashi": chart.get("moon_rashi"),
             "planets": chart.get("planets"),
+            "analysis": chart.get("analysis"),
             "dasha": {
                 "current": chart.get("dasha", {}).get("current") if isinstance(chart.get("dasha"), dict) else None,
                 "_llm_timeline": chart.get("dasha", {}).get("_llm_timeline") if isinstance(chart.get("dasha"), dict) else None,

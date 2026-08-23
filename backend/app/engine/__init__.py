@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from .analysis import compute_drishti, compute_health_and_maraka_analysis, compute_house_lordships
 from .constants import SIGN_NAMES
 from .core import compute_d1, local_to_utc
 from .dasha import current_period, timeline_for_llm, vimshottari
@@ -59,6 +60,9 @@ def compute_full_chart(year: int, month: int, day: int, hour: int, minute: int,
         except Exception as e:
             chart["panchang_today"] = {"error": str(e)}
 
+    # Compute comprehensive lordships, aspects, and health/Maraka profile
+    chart["analysis"] = compute_health_and_maraka_analysis(chart)
+
     return chart
 
 
@@ -67,14 +71,22 @@ def ground_truth_block(chart: dict, name: str = "") -> str:
     l = chart["lagna"]
     m = chart["moon_rashi"]
     today = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    
+    analysis = chart.get("analysis")
+    if not analysis:
+        analysis = compute_health_and_maraka_analysis(chart)
+        
+    lordships = analysis["lordships"]
+    planet_roles = lordships["planet_roles"]
+    
     lines = [
         "### DETERMINISTIC ASTROLOGICAL GROUND TRUTH (Swiss Ephemeris, Lahiri sidereal)",
         f"Subject: {name or 'the native'} | Birth: {b['date']} {b['time']} ({b['tz_name']}) at {b['latitude']:.4f}, {b['longitude']:.4f}",
         f"Today's real date: {today}",
-        f"Lagna (Ascendant): {l['sign']} {l['degree']} | Lord: {l['lord']}",
+        f"Lagna (Ascendant): {l['sign']} {l['degree']} | Lagna Lord: {l['lord']}",
         f"Moon Rashi: {m['sign']} | Nakshatra: {m['nakshatra']} pada {m['pada']} (lord {m['nakshatra_lord']})",
         "",
-        "Planetary positions (D1 Rasi chart):",
+        "Planetary positions & House Lordships (D1 Rasi chart):",
     ]
     for pname, p in chart["planets"].items():
         flags = []
@@ -86,7 +98,53 @@ def ground_truth_block(chart: dict, name: str = "") -> str:
             flags.append("Combust")
         flag_str = f" [{', '.join(flags)}]" if flags else ""
         nak = p["nakshatra"]
-        lines.append(f"- {pname}: {p['sign']} {p['degree']}, House {p['house']}{flag_str} | Nakshatra {nak['name']} pada {nak['pada']} (lord {nak['lord']})")
+        roles_info = planet_roles.get(pname, {}).get("summary", "")
+        role_part = f" | {roles_info}" if roles_info else ""
+        lines.append(f"- {pname}: {p['sign']} {p['degree']}, House {p['house']}{flag_str} | Nakshatra {nak['name']} pada {nak['pada']} (lord {nak['lord']}){role_part}")
+
+    lines.append("")
+    lines.append("Functional Roles & House Governance:")
+    roles_list = []
+    for pname, prole in planet_roles.items():
+        if prole["roles"]:
+            roles_list.append(f"- {pname}: {', '.join(prole['roles'])} (Rules House {', '.join(str(h) for h in prole['houses_ruled'])})")
+    lines.extend(roles_list)
+    lines.append(f"- Badhaka: House {lordships['badhaka']['house']} (Lord: {lordships['badhaka']['lord']})")
+
+    lines.append("")
+    lines.append("Planetary Aspects (Drishti):")
+    drishti = analysis["drishti"]
+    for pname, d in drishti.items():
+        lines.append(f"- {d['summary']}")
+
+    lines.append("")
+    lines.append("Health (Roga), Longevity (Ayurdaya), Dusthana & Maraka Analysis:")
+    h6 = analysis["h6"]
+    h8 = analysis["h8"]
+    h12 = analysis["h12"]
+    marakas = analysis["marakas"]
+    
+    h6_occ = f", Planets in 6th: {', '.join(h6['occupants'])}" if h6['occupants'] else ", No planets residing"
+    h6_asp = f", Aspected by: {', '.join(h6['aspects'])}" if h6['aspects'] else ", No aspects"
+    lines.append(f"- 6th House (Roga / Acute Diseases / Immunity): {h6['sign']} (Lord: {h6['lord']}{h6_occ}{h6_asp})")
+
+    h8_occ = f", Planets in 8th: {', '.join(h8['occupants'])}" if h8['occupants'] else ", No planets residing"
+    h8_asp = f", Aspected by: {', '.join(h8['aspects'])}" if h8['aspects'] else ", No aspects"
+    lines.append(f"- 8th House (Ayurdaya / Longevity / Chronic Illness / Crises): {h8['sign']} (Lord: {h8['lord']}{h8_occ}{h8_asp})")
+
+    h12_occ = f", Planets in 12th: {', '.join(h12['occupants'])}" if h12['occupants'] else ", No planets residing"
+    lines.append(f"- 12th House (Vyaya / Hospitalization / Isolation): {h12['sign']} (Lord: {h12['lord']}{h12_occ})")
+
+    lines.append(f"- Maraka Sthanas (2nd & 7th Houses): Primary Maraka Lords = {', '.join(marakas['lords'])}; Resident planets in Maraka houses = {', '.join(marakas['occupants']) if marakas['occupants'] else 'None'}")
+    
+    if analysis["current_dasha_vulnerabilities"]:
+        lines.append("- Active Dasha Timing Alerts:")
+        for alert in analysis["current_dasha_vulnerabilities"]:
+            lines.append(f"  * {alert}")
+    else:
+        lines.append("- Active Dasha Timing: No acute Maraka or Dusthana lord active currently.")
+
+    lines.append(f"- Sade Sati Status: {analysis['sade_sati']}")
 
     lines.append("")
     d9 = chart.get("navamsa_d9", {})
