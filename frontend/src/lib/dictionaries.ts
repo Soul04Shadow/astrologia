@@ -278,6 +278,17 @@ export function translate(locale: Locale, key: string, vars?: Record<string, str
   return s;
 }
 
+const SIGN_ORDER_EN = [
+  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+  "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
+];
+
+export function localizedSignNames(locale: Locale): string[] {
+  return SIGN_ORDER_EN.map((en) => (locale === "hi" ? SIGN_HI[en] ?? en : en));
+}
+
+export const SIGN_CODES_EN = ["Ar", "Ta", "Ge", "Cn", "Le", "Vi", "Li", "Sc", "Sg", "Cp", "Aq", "Pi"];
+
 function mapOr(m: Record<string, string>, value: string) {
   return m[value] ?? value;
 }

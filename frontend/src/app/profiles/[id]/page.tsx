@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import VargaChart, { type PlacementMark } from "@/components/VargaChart";
 import { api, type Chart, type Profile } from "@/lib/api";
+import { localizedSignNames, SIGN_CODES_EN } from "@/lib/dictionaries";
 import { useI18n } from "@/lib/i18n";
 
 const PLANET_ORDER = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"];
@@ -44,8 +45,17 @@ type TabId = (typeof TABS)[number]["id"];
 export default function ChartPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { t, terms } = useI18n();
+  const { t, terms, locale } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const houseWord = locale === "hi" ? "भाव" : "House";
+  const signLabels = useMemo(
+    () =>
+      localizedSignNames(locale).map((full, i) => ({
+        code: locale === "hi" ? full : SIGN_CODES_EN[i],
+        name: full,
+      })),
+    [locale],
+  );
   const [chart, setChart] = useState<Chart | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabId>("d1");
@@ -65,6 +75,19 @@ export default function ChartPage() {
     if (!chart) return [];
     return PLANET_ORDER.map((pname) => {
       const p = chart.planets[pname];
+      const notes = [
+        p.dignity !== "Neutral" ? terms.dignity(p.dignity) : "",
+        p.retrograde ? t("chart.retrograde") : "",
+        p.combust ? t("chart.combust") : "",
+      ].filter(Boolean);
+      const tip = [
+        `${t("chart.sign")}: ${terms.sign(p.sign)} ${p.degree}`,
+        `${t("chart.house")}: ${p.house}`,
+        `${t("chart.nakshatra")}: ${terms.nakshatra(p.nakshatra.name)} ${t("chart.pada")} ${p.nakshatra.pada}`,
+        notes.length ? `${t("chart.notes")}: ${notes.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
       return {
         label:
           terms.abbrev(pname) +
@@ -72,9 +95,10 @@ export default function ChartPage() {
           (p.retrograde ? "R" : ""),
         signIndex: p.sign_index,
         highlight: p.dignity === "Exalted" || p.retrograde,
+        tip,
       };
     });
-  }, [chart, terms]);
+  }, [chart, terms, t]);
 
   const d9Placements: PlacementMark[] = useMemo(() => {
     if (!chart?.navamsa_d9) return [];
@@ -82,8 +106,14 @@ export default function ChartPage() {
       label: name === "Lagna" ? terms.ascLabel() : terms.abbrev(name) + (v.vargottama ? "*" : ""),
       signIndex: v.sign_index,
       highlight: v.vargottama,
+      tip: [
+        name === "Lagna" ? null : `${t("chart.sign")}: ${terms.sign(v.sign)}`,
+        v.vargottama ? `${t("chart.vargottama")} ✓` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
     }));
-  }, [chart, terms]);
+  }, [chart, terms, t]);
 
   function downloadSvg(ref: React.RefObject<SVGSVGElement | null>, suffix: string) {
     if (!ref.current) return;
