@@ -94,6 +94,7 @@ export default function ChartPage() {
           (p.dignity === "Exalted" ? "*" : "") +
           (p.retrograde ? "R" : ""),
         signIndex: p.sign_index,
+        house: p.house,
         highlight: p.dignity === "Exalted" || p.retrograde,
         tip,
       };

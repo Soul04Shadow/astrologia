@@ -28,7 +28,10 @@ CATALOG: dict[str, list[dict]] = {
         {"id": "openai/gpt-oss-20b:free", "label": "GPT-OSS 20B Free", "ctx": "131K", "free": True, "tools": True},
     ],
     "gemini": [
-        {"id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash", "ctx": "1M", "free": True, "tools": False},
+        {"id": "gemini-2.0-flash", "label": "Gemini 2.0 Flash", "ctx": "1M", "free": True, "tools": False},
+        {"id": "gemini-1.5-flash", "label": "Gemini 1.5 Flash", "ctx": "1M", "free": True, "tools": False},
+        {"id": "gemini-2.0-flash-lite", "label": "Gemini 2.0 Flash Lite", "ctx": "1M", "free": True, "tools": False},
+        {"id": "gemini-1.5-pro", "label": "Gemini 1.5 Pro", "ctx": "2M", "free": True, "tools": False},
     ],
     "lmstudio": [
         {"id": "lm-studio", "label": "LM Studio Local", "ctx": "32K", "free": True, "tools": False},

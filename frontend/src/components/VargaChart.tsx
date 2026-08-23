@@ -5,6 +5,7 @@ import { forwardRef, useState } from "react";
 export interface PlacementMark {
   label: string;
   signIndex: number;
+  house?: number;
   highlight?: boolean;
   tip?: string;
 }
@@ -53,8 +54,7 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
 
   const housePlanets: Record<number, PlacementMark[]> = {};
   for (const p of placements) {
-    const delta = (((p.signIndex - lagnaSignIndex) % 12) + 12) % 12;
-    const house = delta + 1;
+    const house = p.house ?? ((((p.signIndex - lagnaSignIndex) % 12) + 12) % 12 + 1);
     (housePlanets[house] ??= []).push(p);
   }
   const signForHouse = (h: number) => ((lagnaSignIndex + h - 1) % 12) + 1;
