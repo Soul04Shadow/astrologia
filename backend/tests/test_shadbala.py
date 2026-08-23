@@ -167,15 +167,15 @@ def test_drik_bala_aspects():
     - Output is bounded within [-30.0, 30.0]
     """
     planets_with_jupiter_aspect = {
-        "Sun": {"house": 1},
-        "Jupiter": {"house": 5},  # 5th house away -> aspects House 1 (5th aspect)
+        "Sun": {"house": 6},
+        "Jupiter": {"house": 1},  # h_dist = (6 - 1) % 12 = 5 -> aspected by Jupiter
     }
     drik_sun = _drik_bala("Sun", planets_with_jupiter_aspect["Sun"], planets_with_jupiter_aspect)
     assert drik_sun > 0.0
 
     planets_with_mars_aspect = {
-        "Moon": {"house": 4},
-        "Mars": {"house": 1},  # Mars aspects 4th house
+        "Moon": {"house": 5},
+        "Mars": {"house": 1},  # h_dist = (5 - 1) % 12 = 4 -> Mars aspect
     }
     drik_moon = _drik_bala("Moon", planets_with_mars_aspect["Moon"], planets_with_mars_aspect)
     assert drik_moon < 0.0
@@ -204,7 +204,7 @@ def test_sthana_bala_kendra_and_dignity():
     # uchcha(60) + kendra(60) + ojha(15) + dignity(45) = 180.0
     assert sthana_exalted == 180.0
 
-    # Sun in Libra (sign 6, Even), House 3 (Apoklima), Debilitated at 190°
+    # Sun in Libra (sign 6, Odd sign in modulo arithmetic), House 3 (Apoklima), Debilitated at 190°
     p_debilitated = {
         "longitude": 190.0,
         "house": 3,
@@ -212,8 +212,8 @@ def test_sthana_bala_kendra_and_dignity():
         "dignity": "Debilitated",
     }
     sthana_deb = _sthana_bala("Sun", p_debilitated, {})
-    # uchcha(0) + kendra(15) + ojha(0) + dignity(7.5) = 22.5
-    assert sthana_deb == 22.5
+    # uchcha(0) + kendra(15) + ojha(15) + dignity(7.5) = 37.5
+    assert sthana_deb == 37.5
 
 
 def test_full_shadbala_integration_and_status():
