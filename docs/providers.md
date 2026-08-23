@@ -1,39 +1,62 @@
 # Free LLM Provider Setup
 
-The backend talks to **any OpenAI-compatible chat-completions endpoint**. Pick one or more free providers; switch anytime with `LLM_PROVIDER` in `backend/.env`. No code changes ever needed.
+The backend talks to **any OpenAI-compatible chat-completions endpoint**. Pick one or more free providers; switch anytime with `LLM_PROVIDER` in `backend/.env`. No code changes ever needed. **Recommended order: zen → nvidia → groq → openrouter → gemini** (fastest free first).
 
-## 1. Google Gemini (recommended default)
+## 1. OpenCode Zen (recommended default — Ox Alpha free)
 
-1. Get a free API key: <https://aistudio.google.com/apikey>
+1. Zen key: <https://opencode.ai/auth> → Get API key (no card, 8 free models: `ox-alpha-free`, `big-pickle`, `mimo-v2.5-free`, `hy3-free`, `nemotron-3-ultra-free`, `nemotron-3.5-lightning-free`, `deepseek-v4-flash-free`, `muse-spark`…), endpoint `https://opencode.ai/zen/v1`
 2. In `backend/.env`:
    ```
-   LLM_PROVIDER=gemini
-   GEMINI_API_KEY=AIza...
-   GEMINI_MODEL=gemini-2.5-flash
+   LLM_PROVIDER=zen
+   ZEN_API_KEY=zen_...
+   ZEN_MODEL=ox-alpha-free
    ```
-Free tier limits are generous for personal use (~daily request quota per model).
+Free tier: `GET /zen/v1/models` lists live frees; Ox Alpha = 1M ctx, best general free at `0 $/1M` via Zen.
 
-## 2. Groq (fastest free option)
+## 2. Nvidia NIM (free prototyping — Nemotron)
 
-1. Free key: <https://console.groq.com/keys>
-2. `backend/.env`:
+1. Free key: <https://build.nvidia.com/settings/api-keys> → Generate `nvapi-` (no card, 1K credits starter → 5K on request, 40 RPM, filter catalog “Free Endpoint”)
+2. In `backend/.env`:
+   ```
+   LLM_PROVIDER=nvidia
+   NVIDIA_API_KEY=nvapi-...
+   NVIDIA_MODEL=nvidia/nemotron-3-ultra-550b-a55b
+   ```
+Endpoint `https://integrate.api.nvidia.com/v1` — OpenAI compat, supports `tools` for deep reasoning loop.
+
+## 3. Groq (fastest free — tool-calling ready)
+
+1. Free key: <https://console.groq.com/keys> (no card, 30 RPM / 1K RPD most models)
+2. In `backend/.env`:
    ```
    LLM_PROVIDER=groq
    GROQ_API_KEY=gsk_...
    GROQ_MODEL=llama-3.3-70b-versatile
    ```
 
-## 3. OpenRouter (free model variants)
+## 4. OpenRouter (free :free variants — Ox Alpha too)
 
-1. Key: <https://openrouter.ai/keys>
-2. `backend/.env`:
+1. Key: <https://openrouter.ai/keys> (free account 50 RPD → 1K RPD after $10 credit)
+2. In `backend/.env`:
    ```
    LLM_PROVIDER=openrouter
    OPENROUTER_API_KEY=sk-or-...
-   OPENROUTER_MODEL=google/gemini-2.0-flash-exp:free
+   OPENROUTER_MODEL=stealth/ox-alpha:free
    ```
+Or `openrouter/free` auto-router.
 
-## 4. LM Studio (fully offline fallback)
+## 5. Google Gemini (fallback — static, no tool-loop)
+
+1. Free key: <https://aistudio.google.com/apikey>
+2. In `backend/.env`:
+   ```
+   LLM_PROVIDER=gemini
+   GEMINI_API_KEY=AIza...
+   GEMINI_MODEL=gemini-2.5-flash
+   ```
+Tool-loop disabled for Gemini (thought_signature required) — uses static grounded prompt only. Use Groq/OpenRouter/Zen/Nvidia for deep `🔧 tool_call` reasoning.
+
+## 6. LM Studio (fully offline fallback)
 
 Your machine has no dedicated GPU, so expect slow generation — treat as emergency-only.
 
@@ -45,7 +68,7 @@ Your machine has no dedicated GPU, so expect slow generation — treat as emerge
    LMSTUDIO_MODEL=<model name shown in LM Studio>
    ```
 
-## 5. Ollama (offline alternative)
+## 7. Ollama (offline alternative)
 
 ```
 ollama pull qwen2.5:7b

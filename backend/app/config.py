@@ -8,10 +8,14 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./app.db"
     cors_origins: str = "http://localhost:3000"
 
-    llm_provider: str = "gemini"
-    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
-    gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    llm_provider: str = "zen"
+    zen_base_url: str = "https://opencode.ai/zen/v1"
+    zen_api_key: str = ""
+    zen_model: str = "ox-alpha-free"
+
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_api_key: str = ""
+    nvidia_model: str = "nvidia/nemotron-3-ultra-550b-a55b"
 
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_api_key: str = ""
@@ -19,7 +23,11 @@ class Settings(BaseSettings):
 
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_api_key: str = ""
-    openrouter_model: str = "google/gemini-2.0-flash-exp:free"
+    openrouter_model: str = "stealth/ox-alpha:free"
+
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
 
     lmstudio_base_url: str = "http://localhost:1234/v1"
     lmstudio_api_key: str = "lm-studio"
@@ -55,7 +63,7 @@ def provider_config(provider: str | None = None) -> dict:
 
 def available_providers() -> list[dict]:
     out = []
-    for name in ["gemini", "groq", "openrouter", "lmstudio", "ollama"]:
+    for name in ["zen", "nvidia", "groq", "openrouter", "gemini", "lmstudio", "ollama"]:
         try:
             cfg = provider_config(name)
             ready = bool(cfg["model"]) and (bool(cfg["api_key"]) or name in ("lmstudio", "ollama"))
