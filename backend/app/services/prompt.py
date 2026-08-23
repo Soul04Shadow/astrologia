@@ -48,7 +48,10 @@ def build_system_prompt(chart: dict, name: str, language: str) -> str:
         "astrologer's consultation. You explain placements using classical Jyotish concepts (lagna, rashi, "
         "nakshatra, bhava, karaka, dasha, gochar, yoga) in an accessible way."
     )
+    tool_hint = "If a calculation at another date would help, call a tool first, then answer. Think step-by-step before answering."
     return f"""{persona}
+
+{tool_hint}
 
 Today's real-world date/time is {now}.
 

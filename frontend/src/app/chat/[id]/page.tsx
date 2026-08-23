@@ -67,6 +67,7 @@ export default function ChatPage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [translatedCache, setTranslatedCache] = useState<Record<number, Record<string, string>>>({});
   const [translating, setTranslating] = useState(false);
+  const [toolCalls, setToolCalls] = useState<{ id?: string; name: string; args: any }[]>([]);
   const localeInitialized = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
@@ -256,6 +257,7 @@ export default function ChatPage() {
     setPendingUser(text);
     setStreamText("");
     setWaitingFirstToken(true);
+    setToolCalls([]);
 
     try {
       const res = await fetch(`${api.base}/api/chat/${id}?session_id=${sid}`, {
@@ -286,7 +288,13 @@ export default function ChatPage() {
           const line = part.trim();
           if (!line.startsWith("data:")) continue;
           const event = JSON.parse(line.slice(5).trim());
-          if (event.delta) {
+          if (event.event === "tool_call") {
+            setToolCalls((prev) => [...prev, event]);
+            setWaitingFirstToken(false);
+          } else if (event.event === "error_tool") {
+            // tool error chip, do not crash streaming; show as error but continue
+            setToolCalls((prev) => [...prev, { name: "error", args: { detail: event.detail } }]);
+          } else if (event.delta) {
             full += event.delta;
             setStreamText(full);
             setWaitingFirstToken(false);
@@ -476,6 +484,18 @@ export default function ChatPage() {
                 <Sparkles size={15} />
               </span>
               <div className="max-w-[88%]">
+                {toolCalls.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {toolCalls.map((tc, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-full border border-gold bg-saffron-50 px-2.5 py-1 text-[11px] font-semibold text-saffron-800"
+                      >
+                        🔧 Consulted {tc.name} {tc.args?.at_date ? `· ${tc.args.at_date}` : tc.args?.detail ? `· ${tc.args.detail}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="min-h-[2.75rem] rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm shadow-sm">
                   {streamText ? (
                     <div className="prose-chat">
