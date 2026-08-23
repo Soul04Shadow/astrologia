@@ -53,6 +53,7 @@ async def stream_chat(messages: list[dict], provider: str | None = None,
                         chunk = json.loads(data)
                         choice = chunk["choices"][0] if chunk.get("choices") else {}
                         delta = choice.get("delta", {}) or {}
+                        finish_reason = choice.get("finish_reason")
                         # separate content and reasoning deltas
                         content = delta.get("content")
                         if content:
