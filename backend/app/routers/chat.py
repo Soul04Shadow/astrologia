@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -68,7 +68,7 @@ async def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Q
     if not history and resolved_session.title in ("First consultation", "New chat"):
         resolved_session.title = payload.message.strip()[:40] or resolved_session.title
 
-    resolved_session.updated_at = datetime.utcnow()
+    resolved_session.updated_at = datetime.now(timezone.utc)
     db.add(resolved_session)
     db.commit()
     db.refresh(resolved_session)

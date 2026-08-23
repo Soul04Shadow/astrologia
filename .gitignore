@@ -15,8 +15,11 @@ backend/*.pdf
 
 # python
 __pycache__/
-*.pyc
+**/__pycache__/
+*.py[cod]
+*$py.class
 .pytest_cache/
+**/.pytest_cache/
 
 # misc
 .DS_Store

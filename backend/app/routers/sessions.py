@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -86,7 +86,7 @@ def rename_session(profile_id: int, sid: int, payload: SessionRename, db: Sessio
     if not sess or sess.profile_id != profile_id:
         raise HTTPException(status_code=404, detail="Session not found")
     sess.title = payload.title[:80]
-    sess.updated_at = datetime.utcnow()
+    sess.updated_at = datetime.now(timezone.utc)
     db.add(sess)
     db.commit()
     db.refresh(sess)
