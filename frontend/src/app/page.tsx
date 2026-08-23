@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type Profile } from "@/lib/api";
 
@@ -88,7 +89,7 @@ export default function DashboardPage() {
                 className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-muted hover:bg-stone-50"
                 aria-label={`Delete ${p.name}`}
               >
-                ✕
+                <X size={15} />
               </button>
             </div>
           </div>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from .constants import SIGN_NAMES
 from .core import compute_d1, local_to_utc
 from .dasha import current_period, timeline_for_llm, vimshottari
 from .navamsa import navamsa_table
@@ -35,6 +36,16 @@ def compute_full_chart(year: int, month: int, day: int, hour: int, minute: int,
     }
 
     chart["navamsa_d9"] = navamsa_table(chart["planets"])
+    from .navamsa import navamsa_sign
+    lagna_nav = navamsa_sign(chart["lagna"]["longitude"])
+    chart["navamsa_d9"] = {
+        "Lagna": {
+            "sign": SIGN_NAMES[lagna_nav],
+            "sign_index": lagna_nav,
+            "vargottama": lagna_nav == chart["lagna"]["sign_index"],
+        },
+        **chart["navamsa_d9"],
+    }
     chart["yogas"] = detect_yogas(chart)
     chart.pop("_positions_raw", None)
     chart.pop("_jd", None)

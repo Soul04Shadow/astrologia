@@ -61,14 +61,9 @@ export interface Chart {
       antardashas: { lord: string; start_date: string; end_date: string }[];
     }[];
   };
-  navamsa_d9: Record<string, { sign: string; sign_index: number; vargottama: boolean }>;
-  yogas: { name: string; basis: string }[];
-  transits_now?: {
-    computed_at: string;
-    positions: Record<string, Omit<PlanetPlacement, "house" | "sign_lord" | "combust">>;
-  };
   panchang_today?: {
     date: string;
+    tz_name: string;
     weekday: string;
     var_lord: string;
     tithi: { index: number; paksha: string; name: string };
@@ -77,6 +72,22 @@ export interface Chart {
     karana: { index: number; name: string };
     sun_sign: string;
     moon_sign: string;
+  };
+  navamsa_d9: Record<string, { sign: string; sign_index: number; vargottama: boolean }>;
+  yogas: { name: string; basis: string }[];
+  transits_now?: {
+    computed_at: string;
+    positions: Record<
+      string,
+      {
+        longitude: number;
+        sign: string;
+        degree: string;
+        retrograde: boolean;
+        dignity: string;
+        nakshatra: string;
+      }
+    >;
   };
 }
 

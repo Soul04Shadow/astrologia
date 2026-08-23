@@ -5,7 +5,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-white text-ink antialiased">
-        <header className="border-b border-stone-200 bg-saffron-50">
+        <header className="border-b border-stone-200 bg-white">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
             <Link href="/" className="flex items-center gap-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-saffron-600 text-lg font-bold text-white">
@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="flex items-center gap-2">
               <Link
                 href="/"
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-saffron-700 hover:bg-saffron-100"
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-saffron-700 hover:bg-saffron-50"
               >
                 Profiles
               </Link>

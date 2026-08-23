@@ -11,25 +11,26 @@ A private-first, full-stack Vedic astrology web app: exact Swiss-Ephemeris kundl
 
 ## Quick start
 
-### Backend (Python 3.13 venv already created)
+Double-click the scripts in the repo root (Windows):
+
+- `start-backend.bat` — starts API on http://localhost:8000 (close its window to stop it)
+- `start-frontend.bat` — starts UI on http://localhost:3000 (close its window to stop it)
+- `stop-all.bat` — force-stops both
+
+First time only: copy `backend/.env.example` to `backend/.env` and add a free Gemini key (see `docs/providers.md`). Changed `.env`? Just close the backend window and run `start-backend.bat` again.
+
+### Manual commands (equivalent)
 
 ```powershell
+# backend
 cd backend
-copy .env.example .env        # then add a free API key (see docs/providers.md)
 .venv\Scripts\activate
-pip install -r requirements.txt   # skip if already installed
 uvicorn app.main:app --port 8000
-```
 
-### Frontend
-
-```powershell
+# frontend (second terminal)
 cd frontend
-npm install                   # skip if node_modules exists
-npm run dev
+npm run dev -- --port 3000
 ```
-
-Open **http://localhost:3000** → create a birth profile → view chart → consult.
 
 ## Accuracy verification
 

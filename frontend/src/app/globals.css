@@ -9,12 +9,14 @@
   --color-saffron-600: #ea580c;
   --color-saffron-700: #c2410c;
   --color-saffron-800: #9a3412;
+  --color-cream: #faf5ea;
+  --color-cream-deep: #f5eddb;
   --color-ink: #1c1917;
   --color-muted: #78716c;
 }
 
 html,
 body {
-  background-color: #ffffff;
+  background-color: var(--color-cream);
   color: var(--color-ink);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, type ChatMessageItem, type Profile } from "@/lib/api";
@@ -128,8 +129,8 @@ export default function ChatPage() {
     <div className="mx-auto flex h-[calc(100vh-9rem)] max-w-3xl flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3">
         <div>
-          <Link href={`/profiles/${id}`} className="text-xs font-semibold text-saffron-700 hover:underline">
-            ← Chart
+          <Link href={`/profiles/${id}`} className="flex items-center gap-0.5 text-xs font-semibold text-saffron-700 hover:underline">
+            <ChevronLeft size={13} /> Chart
           </Link>
           <h1 className="text-lg font-bold">Consultation — {profile?.name ?? "…"}</h1>
         </div>
