@@ -191,6 +191,10 @@ def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(N
                             full_reply.append(content)
                             turn_had_delta = True
                             yield f"data: {json.dumps({'delta': content})}\n\n"
+                    elif etype == "reasoning":
+                        r_content = event.get("content") or ""
+                        if r_content:
+                            yield f"data: {json.dumps({'event': 'reasoning', 'delta': r_content})}\n\n"
                     elif etype == "tool_calls":
                         got_tool_calls = event.get("tool_calls") or []
                         # break inner loop to handle tool execution

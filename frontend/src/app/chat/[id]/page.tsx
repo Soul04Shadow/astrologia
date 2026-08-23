@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, ChevronLeft, Copy, Pencil, Plus, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Check, ChevronLeft, Copy, Pencil, Plus, RotateCw, Sparkles, Trash2, UserRound } from "lucide-react";
 import { api, type ChatMessageItem, type ChatSession, type ModelInfo, type Profile } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
@@ -64,6 +64,7 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streamText, setStreamText] = useState("");
+  const [thinkingText, setThinkingText] = useState("");
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const [error, setError] = useState("");
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -73,6 +74,14 @@ export default function ChatPage() {
   const localeInitialized = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // cleanup in-flight request on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   // sync URL ?s= to state
   useEffect(() => {
@@ -175,7 +184,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, streamText, waitingFirstToken, pendingUser]);
+  }, [messages, streamText, thinkingText, waitingFirstToken, pendingUser]);
 
   async function handleTranslate(target: "hinglish" | "hi" | "en") {
     setLanguage(target);
@@ -233,20 +242,42 @@ export default function ChatPage() {
   }
 
   async function handleNewChat() {
+    if (streaming) {
+      abortControllerRef.current?.abort();
+      setStreaming(false);
+      setPendingUser(null);
+      setStreamText("");
+      setThinkingText("");
+      setWaitingFirstToken(false);
+      setToolCalls([]);
+    }
     try {
       const sess = await api.createSession(id, "New chat");
       setSessions((prev) => [sess, ...prev]);
-      router.push(`/chat/${id}?s=${sess.id}`);
       setActiveSessionId(String(sess.id));
       setMessages([]);
+      setError("");
+      router.push(`/chat/${id}?s=${sess.id}`);
     } catch (e) {
       setError(String(e));
     }
   }
 
   function handleSelectSession(sid: number) {
-    router.push(`/chat/${id}?s=${sid}`);
+    if (String(sid) === activeSessionId) return;
+    if (streaming) {
+      abortControllerRef.current?.abort();
+      setStreaming(false);
+      setPendingUser(null);
+      setStreamText("");
+      setThinkingText("");
+      setWaitingFirstToken(false);
+      setToolCalls([]);
+    }
+    setMessages([]);
+    setError("");
     setActiveSessionId(String(sid));
+    router.push(`/chat/${id}?s=${sid}`);
   }
 
   async function handleRename(sid: number, current: string) {
@@ -288,9 +319,9 @@ export default function ChatPage() {
     }
   }
 
-  async function send(e?: React.FormEvent) {
+  async function send(e?: React.FormEvent, overrideText?: string) {
     e?.preventDefault();
-    const text = input.trim();
+    const text = (overrideText ?? input).trim();
     if (!text || streaming) return;
 
     let sid = activeSessionId;
@@ -307,20 +338,29 @@ export default function ChatPage() {
       }
     }
 
-    setInput("");
-    if (taRef.current) taRef.current.style.height = "auto";
+    if (!overrideText) {
+      setInput("");
+      if (taRef.current) taRef.current.style.height = "auto";
+    }
     setError("");
     setStreaming(true);
     setPendingUser(text);
     setStreamText("");
+    setThinkingText("");
     setWaitingFirstToken(true);
     setToolCalls([]);
+
+    // Setup abort controller
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       const res = await fetch(`${api.base}/api/chat/${id}?session_id=${sid}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, language, provider: provider || null, "model": model || null }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         let detail = res.statusText;
@@ -351,6 +391,9 @@ export default function ChatPage() {
           } else if (event.event === "error_tool") {
             // tool error chip, do not crash streaming; show as error but continue
             setToolCalls((prev) => [...prev, { name: "error", args: { detail: event.detail } }]);
+          } else if (event.event === "reasoning" && event.delta) {
+            setThinkingText((prev) => prev + event.delta);
+            setWaitingFirstToken(false);
           } else if (event.delta) {
             full += event.delta;
             setStreamText(full);
@@ -361,10 +404,13 @@ export default function ChatPage() {
         }
       }
 
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now(), role: "user", content: text, language, created_at: new Date().toISOString(), session_id: Number(sid) },
-        {
+      setMessages((prev) => {
+        const alreadyHasUser = prev.length > 0 && prev[prev.length - 1].role === "user" && prev[prev.length - 1].content === text;
+        const newMsgs: ChatMessageItem[] = alreadyHasUser ? [...prev] : [
+          ...prev,
+          { id: Date.now(), role: "user", content: text, language, created_at: new Date().toISOString(), session_id: Number(sid) },
+        ];
+        newMsgs.push({
           id: Date.now() + 1,
           role: "assistant",
           content: full,
@@ -372,16 +418,22 @@ export default function ChatPage() {
           language,
           created_at: new Date().toISOString(),
           session_id: Number(sid),
-        },
-      ]);
+        });
+        return newMsgs;
+      });
+
       // refresh sessions order (updated_at)
       api.listSessions(id).then(setSessions).catch(() => {});
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return;
+      }
       setError(String(err instanceof Error ? err.message : err));
     } finally {
       setStreaming(false);
       setPendingUser(null);
       setStreamText("");
+      setThinkingText("");
       setWaitingFirstToken(false);
     }
   }
@@ -509,16 +561,31 @@ export default function ChatPage() {
           )}
 
           {messages.map((m, idx) => {
+            const isLastMessage = idx === messages.length - 1;
+            const isOrphanedUser = m.role === "user" && isLastMessage && !streaming && !pendingUser;
             const display =
               m.role === "assistant" ? (translatedCache[m.id]?.[language] ?? m.content) : m.content;
             return m.role === "user" ? (
-              <div key={m.id} className="flex items-end justify-end gap-2">
-                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-saffron-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
-                  {display}
+              <div key={m.id} className="space-y-1.5">
+                <div className="flex items-end justify-end gap-2">
+                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-saffron-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
+                    {display}
+                  </div>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-panel text-saffron-700">
+                    <UserRound size={15} />
+                  </span>
                 </div>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-panel text-saffron-700">
-                  <UserRound size={15} />
-                </span>
+                {isOrphanedUser && (
+                  <div className="flex items-center justify-end pr-10">
+                    <button
+                      onClick={() => send(undefined, m.content)}
+                      className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-2.5 py-1 text-xs font-semibold text-saffron-800 shadow-sm transition hover:bg-saffron-100"
+                    >
+                      <RotateCw size={12} />
+                      {locale === "hi" ? "उत्तर प्राप्त करें / पुनः प्रयास" : "Generate response"}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div key={m.id} className="group flex items-start gap-2">
@@ -557,7 +624,7 @@ export default function ChatPage() {
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-700">
                 <Sparkles size={15} />
               </span>
-              <div className="max-w-[88%]">
+              <div className="max-w-[88%] w-full">
                 {toolCalls.length > 0 && (
                   <div className="mb-2 flex flex-wrap gap-1.5">
                     {toolCalls.map((tc, idx) => (
@@ -570,6 +637,19 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
+
+                {thinkingText && (
+                  <details className="mb-2.5 rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-stone-700 transition" open={!streamText}>
+                    <summary className="cursor-pointer font-bold text-amber-800 flex items-center gap-1.5 select-none">
+                      <Sparkles size={13} className="text-amber-600 animate-pulse" />
+                      <span>{streamText ? (locale === "hi" ? "विचार प्रक्रिया (क्लिक करें)" : "Thought process (expand)") : (locale === "hi" ? "कुंडली का विश्लेषण चल रहा है..." : "Analyzing chart & thinking...")}</span>
+                    </summary>
+                    <div className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-stone-600 max-h-44 overflow-y-auto pl-2 border-l-2 border-amber-300">
+                      {thinkingText}
+                    </div>
+                  </details>
+                )}
+
                 <div className="min-h-[2.75rem] rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm shadow-sm">
                   {streamText ? (
                     <div className="prose-chat">

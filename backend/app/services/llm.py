@@ -53,13 +53,13 @@ async def stream_chat(messages: list[dict], provider: str | None = None,
                         chunk = json.loads(data)
                         choice = chunk["choices"][0] if chunk.get("choices") else {}
                         delta = choice.get("delta", {}) or {}
-                        finish_reason = choice.get("finish_reason")
-                        # content delta (or reasoning delta fallback for thinking models)
+                        # separate content and reasoning deltas
                         content = delta.get("content")
-                        if not content and not delta.get("tool_calls"):
-                            content = delta.get("reasoning_content") or delta.get("reasoning")
                         if content:
                             yield {"type": "delta", "content": content}
+                        reasoning = delta.get("reasoning_content") or delta.get("reasoning")
+                        if reasoning:
+                            yield {"type": "reasoning", "content": reasoning}
                         # tool_calls fragments
                         tcs = delta.get("tool_calls")
                         if tcs:
