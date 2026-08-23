@@ -74,12 +74,12 @@ export default function ChatPage() {
   const localeInitialized = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const activeStreamReaderRef = useRef<AbortController | null>(null);
 
-  // cleanup in-flight request on unmount
+  // cleanup in-flight stream reader on unmount
   useEffect(() => {
     return () => {
-      abortControllerRef.current?.abort();
+      activeStreamReaderRef.current?.abort();
     };
   }, []);
 
@@ -98,7 +98,6 @@ export default function ChatPage() {
       .then((d) => {
         const list: ProviderInfo[] = d.providers ?? [];
         setProviders(list);
-        // restore from localStorage per profile
         try {
           const raw = localStorage.getItem(`chat:model:${id}`);
           if (raw) {
@@ -131,7 +130,7 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // provider -> model list, reset model to first on provider change, keep FREE/tools badge
+  // provider -> model list
   useEffect(() => {
     if (!provider) return;
     api
@@ -142,10 +141,8 @@ export default function ChatPage() {
           setModel("");
           return;
         }
-        // if current model not in new list, reset to first; also respect stored model for this provider if valid
         const hasCurrent = list.find((m) => m.id === model);
         if (!hasCurrent) {
-          // check stored model for this provider
           try {
             const raw = localStorage.getItem(`chat:model:${id}`);
             if (raw) {
@@ -173,13 +170,103 @@ export default function ChatPage() {
     } catch {}
   }, [provider, model, id]);
 
-  // load session history when activeSessionId changes
+  // Attach to active background stream replay & live events
+  async function attachToStream(sid: string) {
+    if (activeStreamReaderRef.current) {
+      activeStreamReaderRef.current.abort();
+    }
+    const controller = new AbortController();
+    activeStreamReaderRef.current = controller;
+
+    setStreaming(true);
+    setWaitingFirstToken(true);
+
+    try {
+      const res = await fetch(`${api.base}/api/chat/${id}/stream?session_id=${sid}`, {
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) return;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let full = "";
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data:")) continue;
+          const event = JSON.parse(line.slice(5).trim());
+          if (event.event === "tool_call") {
+            setToolCalls((prev) => [...prev, event]);
+            setWaitingFirstToken(false);
+          } else if (event.event === "error_tool") {
+            setToolCalls((prev) => [...prev, { name: "error", args: { detail: event.detail } }]);
+          } else if (event.event === "reasoning" && event.delta) {
+            setThinkingText((prev) => prev + event.delta);
+            setWaitingFirstToken(false);
+          } else if (event.delta) {
+            full += event.delta;
+            setStreamText(full);
+            setWaitingFirstToken(false);
+          } else if (event.event === "done" || event.event === "error") {
+            if (event.event === "error") {
+              setError(event.detail || "Error in response");
+            }
+            break;
+          }
+        }
+      }
+
+      // Stream completed: reload session history from DB to get final saved assistant message
+      if (sid === activeSessionId) {
+        api.sessionHistory(id, sid).then(setMessages).catch(() => {});
+        api.listSessions(id).then(setSessions).catch(() => {});
+      }
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
+    } finally {
+      if (sid === activeSessionId) {
+        setStreaming(false);
+        setWaitingFirstToken(false);
+        setStreamText("");
+        setThinkingText("");
+      }
+    }
+  }
+
+  // load session history when activeSessionId changes & check if stream is running in background
   useEffect(() => {
     if (!activeSessionId) return;
+
+    // Reset current UI stream state
+    activeStreamReaderRef.current?.abort();
+    setStreamText("");
+    setThinkingText("");
+    setToolCalls([]);
+    setStreaming(false);
+    setWaitingFirstToken(false);
+
     api
       .sessionHistory(id, activeSessionId)
       .then((h) => setMessages(h))
       .catch((e) => setError(String(e)));
+
+    // Check if stream is currently active in background for this session
+    fetch(`${api.base}/api/chat/${id}/status?session_id=${activeSessionId}`)
+      .then((r) => r.json())
+      .then((status) => {
+        if (status.active) {
+          attachToStream(activeSessionId);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, activeSessionId]);
 
   useEffect(() => {
@@ -218,8 +305,6 @@ export default function ChatPage() {
   }
 
   // AppShell locale sync -> retro-translate visible session.
-  // Skips the first run: restoring a saved locale on page open must NOT
-  // auto-translate history and burn API quota without an explicit action.
   useEffect(() => {
     if (!localeInitialized.current) {
       localeInitialized.current = true;
@@ -242,15 +327,12 @@ export default function ChatPage() {
   }
 
   async function handleNewChat() {
-    if (streaming) {
-      abortControllerRef.current?.abort();
-      setStreaming(false);
-      setPendingUser(null);
-      setStreamText("");
-      setThinkingText("");
-      setWaitingFirstToken(false);
-      setToolCalls([]);
-    }
+    activeStreamReaderRef.current?.abort();
+    setStreamText("");
+    setThinkingText("");
+    setWaitingFirstToken(false);
+    setStreaming(false);
+    setToolCalls([]);
     try {
       const sess = await api.createSession(id, "New chat");
       setSessions((prev) => [sess, ...prev]);
@@ -265,15 +347,12 @@ export default function ChatPage() {
 
   function handleSelectSession(sid: number) {
     if (String(sid) === activeSessionId) return;
-    if (streaming) {
-      abortControllerRef.current?.abort();
-      setStreaming(false);
-      setPendingUser(null);
-      setStreamText("");
-      setThinkingText("");
-      setWaitingFirstToken(false);
-      setToolCalls([]);
-    }
+    activeStreamReaderRef.current?.abort();
+    setStreamText("");
+    setThinkingText("");
+    setWaitingFirstToken(false);
+    setStreaming(false);
+    setToolCalls([]);
     setMessages([]);
     setError("");
     setActiveSessionId(String(sid));
@@ -302,7 +381,6 @@ export default function ChatPage() {
           router.push(`/chat/${id}?s=${remaining[0].id}`);
           setActiveSessionId(String(remaining[0].id));
         } else {
-          // reload list to get default
           const fresh = await api.listSessions(id);
           setSessions(fresh);
           if (fresh.length > 0) {
@@ -343,23 +421,34 @@ export default function ChatPage() {
       if (taRef.current) taRef.current.style.height = "auto";
     }
     setError("");
+
+    // Optimistically show user message
+    setMessages((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1].role === "user" && prev[prev.length - 1].content === text) {
+        return prev;
+      }
+      return [
+        ...prev,
+        { id: Date.now(), role: "user", content: text, language, created_at: new Date().toISOString(), session_id: Number(sid) },
+      ];
+    });
+
     setStreaming(true);
-    setPendingUser(text);
     setStreamText("");
     setThinkingText("");
     setWaitingFirstToken(true);
     setToolCalls([]);
 
-    // Setup abort controller
-    abortControllerRef.current?.abort();
+    // Attach stream reader controller
+    activeStreamReaderRef.current?.abort();
     const controller = new AbortController();
-    abortControllerRef.current = controller;
+    activeStreamReaderRef.current = controller;
 
     try {
       const res = await fetch(`${api.base}/api/chat/${id}?session_id=${sid}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, language, provider: provider || null, "model": model || null }),
+        body: JSON.stringify({ message: text, language, provider: provider || null, model: model || null }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
@@ -389,7 +478,6 @@ export default function ChatPage() {
             setToolCalls((prev) => [...prev, event]);
             setWaitingFirstToken(false);
           } else if (event.event === "error_tool") {
-            // tool error chip, do not crash streaming; show as error but continue
             setToolCalls((prev) => [...prev, { name: "error", args: { detail: event.detail } }]);
           } else if (event.event === "reasoning" && event.delta) {
             setThinkingText((prev) => prev + event.delta);
@@ -398,43 +486,32 @@ export default function ChatPage() {
             full += event.delta;
             setStreamText(full);
             setWaitingFirstToken(false);
-          } else if (event.event === "error") {
-            throw new Error(event.detail);
+          } else if (event.event === "done" || event.event === "error") {
+            if (event.event === "error") {
+              setError(event.detail || "Error in response");
+            }
+            break;
           }
         }
       }
 
-      setMessages((prev) => {
-        const alreadyHasUser = prev.length > 0 && prev[prev.length - 1].role === "user" && prev[prev.length - 1].content === text;
-        const newMsgs: ChatMessageItem[] = alreadyHasUser ? [...prev] : [
-          ...prev,
-          { id: Date.now(), role: "user", content: text, language, created_at: new Date().toISOString(), session_id: Number(sid) },
-        ];
-        newMsgs.push({
-          id: Date.now() + 1,
-          role: "assistant",
-          content: full,
-          provider,
-          language,
-          created_at: new Date().toISOString(),
-          session_id: Number(sid),
-        });
-        return newMsgs;
-      });
-
-      // refresh sessions order (updated_at)
-      api.listSessions(id).then(setSessions).catch(() => {});
+      // Reload fresh messages from DB to get the saved assistant message
+      if (sid === activeSessionId) {
+        api.sessionHistory(id, sid).then(setMessages).catch(() => {});
+        api.listSessions(id).then(setSessions).catch(() => {});
+      }
     } catch (err: any) {
       if (err?.name === "AbortError") {
         return;
       }
       setError(String(err instanceof Error ? err.message : err));
     } finally {
-      setStreaming(false);
-      setPendingUser(null);
-      setStreamText("");
-      setThinkingText("");
-      setWaitingFirstToken(false);
+      if (sid === activeSessionId) {
+        setStreaming(false);
+        setStreamText("");
+        setThinkingText("");
+        setWaitingFirstToken(false);
+      }
     }
   }
 
