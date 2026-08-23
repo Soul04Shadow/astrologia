@@ -109,12 +109,12 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
         {Object.entries(HOUSE_CENTERS).map(([h, c]) => {
           const house = Number(h);
           const list = housePlanets[house] ?? [];
-          const sIdx = signForHouse(house);
+          const sIdx = signForHouse(house); // 1 to 12 (Rashi / Sign number)
           const sl = signLabels?.[sIdx];
           const isHovered = hoveredHouse === house;
-          // keep sign+number together at top, planets well below to avoid overlap
-          const signY = c.y - 22 - Math.max(list.length - 1, 0) * 4;
-          const planetBaseY = c.y + 6;
+          // Position sign number at top apex of house, and stack planets below
+          const signY = c.y - 20 - Math.min(list.length, 2) * 3;
+          const planetBaseY = c.y - 2 + (list.length === 1 ? 4 : 0);
           return (
             <g
               key={house}
@@ -125,46 +125,54 @@ const VargaChart = forwardRef<SVGSVGElement, Props>(function VargaChart(
               {isHovered && (
                 <circle cx={c.x} cy={c.y} r={28} fill="rgba(251,146,60,0.10)" stroke="rgba(251,146,60,0.35)" strokeWidth={1.2} />
               )}
+              {/* Rashi / Sign Number (1 to 12) */}
               <text
                 x={c.x}
                 y={signY}
                 textAnchor="middle"
-                fontSize={sl && /[\u0900-\u097F]/.test(sl.code) ? 12 : 12.5}
+                fontSize={13}
                 fontWeight="700"
                 fill={isHovered ? "#9a3412" : "#c2410c"}
-                style={{ cursor: sl ? "pointer" : "default" }}
-                onMouseEnter={(e) => sl && showSide(e, sl.name, [`${houseWord} ${house}`])}
-                onMouseMove={(e) => sl && showSide(e, sl.name, [`${houseWord} ${house}`])}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={(e) =>
+                  showSide(
+                    e,
+                    sl ? `${sl.name} (Sign ${sIdx})` : `Sign ${sIdx}`,
+                    [`${houseWord} ${house}`],
+                  )
+                }
+                onMouseMove={(e) =>
+                  showSide(
+                    e,
+                    sl ? `${sl.name} (Sign ${sIdx})` : `Sign ${sIdx}`,
+                    [`${houseWord} ${house}`],
+                  )
+                }
               >
-                {sl?.code ?? ""}
+                {sIdx}
               </text>
-              <text
-                x={c.x}
-                y={signY + 10}
-                textAnchor="middle"
-                fontSize="8"
-                fontWeight="600"
-                fill={isHovered ? "#78716c" : "#a8a29e"}
-              >
-                {house}
-              </text>
+              {/* Planets / Ascendant in this house */}
               {list.map((mark, i) => (
                 <text
                   key={`${house}-${mark.label}-${i}`}
                   x={c.x}
-                  y={planetBaseY + i * 16}
+                  y={planetBaseY + i * 15}
                   textAnchor="middle"
-                  fontSize="13"
+                  fontSize={mark.label.length > 5 ? 11.5 : 12.5}
                   fontWeight="700"
                   fill={mark.highlight ? "#b45309" : "#292524"}
                   style={{ cursor: mark.tip ? "pointer" : "default" }}
                   onMouseEnter={(e) => {
-                    const [tt, ...rest] = mark.tip!.split("\n");
-                    showSide(e, tt, rest);
+                    if (mark.tip) {
+                      const [tt, ...rest] = mark.tip.split("\n");
+                      showSide(e, tt, rest);
+                    }
                   }}
                   onMouseMove={(e) => {
-                    const [tt, ...rest] = mark.tip!.split("\n");
-                    showSide(e, tt, rest);
+                    if (mark.tip) {
+                      const [tt, ...rest] = mark.tip.split("\n");
+                      showSide(e, tt, rest);
+                    }
                   }}
                   onMouseLeave={hide}
                 >

@@ -73,7 +73,24 @@ export default function ChartPage() {
 
   const d1Placements: PlacementMark[] = useMemo(() => {
     if (!chart) return [];
-    return PLANET_ORDER.map((pname) => {
+    const lagnaDeg = chart.lagna.degree.split("'")[0] + "'";
+    const lagnaMark: PlacementMark = {
+      label: `${terms.ascLabel()} ${lagnaDeg}`,
+      signIndex: chart.lagna.sign_index,
+      house: 1,
+      highlight: true,
+      tip: [
+        `${t("stat.lagna")}: ${terms.sign(chart.lagna.sign)} ${chart.lagna.degree}`,
+        `${t("chart.house")}: 1`,
+        `${t("chart.lord", { x: terms.planet(chart.lagna.lord) })}`,
+        chart.lagna.nakshatra
+          ? `${t("chart.nakshatra")}: ${terms.nakshatra(chart.lagna.nakshatra.name)} ${t("chart.pada")} ${chart.lagna.nakshatra.pada}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    };
+    const planetMarks: PlacementMark[] = PLANET_ORDER.map((pname) => {
       const p = chart.planets[pname];
       const notes = [
         p.dignity !== "Neutral" ? terms.dignity(p.dignity) : "",
@@ -99,6 +116,7 @@ export default function ChartPage() {
         tip,
       };
     });
+    return [lagnaMark, ...planetMarks];
   }, [chart, terms, t]);
 
   const d9Placements: PlacementMark[] = useMemo(() => {
@@ -258,7 +276,14 @@ export default function ChartPage() {
               </span>
             </div>
             <div className="mx-auto max-w-[430px]">
-              <VargaChart ref={d1Ref} lagnaSignIndex={chart.lagna.sign_index} placements={d1Placements} />
+              <VargaChart
+                ref={d1Ref}
+                lagnaSignIndex={chart.lagna.sign_index}
+                placements={d1Placements}
+                signLabels={signLabels}
+                houseWord={houseWord}
+                title={locale === "hi" ? "द1 राशि कुंडली" : "D1 Rasi Chart"}
+              />
             </div>
           </Card>
 
@@ -295,6 +320,9 @@ export default function ChartPage() {
                 ref={d9Ref}
                 lagnaSignIndex={chart.navamsa_d9["Lagna"]?.sign_index ?? 0}
                 placements={d9Placements}
+                signLabels={signLabels}
+                houseWord={houseWord}
+                title={locale === "hi" ? "द9 नवमांश कुंडली" : "D9 Navamsa Chart"}
               />
             </div>
           </Card>

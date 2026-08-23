@@ -36,6 +36,13 @@ def render_north_indian_png(chart: dict, width_px: int = 1000) -> bytes:
     lagna_index = chart["lagna"]["sign_index"]
 
     house_planets: dict[int, list[tuple[str, bool]]] = {h: [] for h in range(1, 13)}
+    
+    # Add Ascendant to House 1
+    lagna_deg = chart.get("lagna", {}).get("degree", "")
+    asc_deg = lagna_deg.split("'")[0] + "'" if lagna_deg else ""
+    asc_label = f"Asc {asc_deg}".strip() if asc_deg else "Asc"
+    house_planets[1].append((asc_label, True))
+
     for pname, p in chart["planets"].items():
         delta = ((p["sign_index"] - lagna_index) % 12)
         house = delta + 1
@@ -66,12 +73,13 @@ def render_north_indian_png(chart: dict, width_px: int = 1000) -> bytes:
 
     for h, (cx, cy) in HOUSE_CENTERS.items():
         sign_idx = sign_for_house(h)
-        ax.text(cx, cy - 26, SIGN_ABBREV[sign_idx], ha="center", va="center",
+        sign_number = str(sign_idx + 1)
+        ax.text(cx, cy - 24, sign_number, ha="center", va="center",
                 fontsize=13, fontweight="bold", color="#C2410C")
         entries = house_planets[h]
         for i, (mark, highlight) in enumerate(entries):
-            ax.text(cx, cy - 6 + i * 17, mark, ha="center", va="center",
-                    fontsize=12.5, fontweight="bold",
+            ax.text(cx, cy - 5 + i * 16, mark, ha="center", va="center",
+                    fontsize=11.0 if len(mark) > 5 else 12.5, fontweight="bold",
                     color="#B45309" if highlight else "#292524")
 
     buf = io.BytesIO()
