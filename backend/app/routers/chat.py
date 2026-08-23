@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
+from app.config import get_settings, provider_config
 from app.db import ChatMessage, ChatSession, Profile, SessionLocal, get_db
 from app.routers.charts import _chart_for_profile
 from app.schemas import ChatRequest
@@ -82,41 +82,82 @@ def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(N
     messages = [{"role": "system", "content": system_prompt}, *history,
                 {"role": "user", "content": payload.message}]
 
+    cfg = provider_config(payload.provider, payload.model)
+
     # capture for closure (use new SessionLocal inside stream)
     saved_profile_id = profile.id
     saved_session_id = session_id
     saved_provider = payload.provider or get_settings().llm_provider
+    saved_model = cfg["model"]
     saved_language = payload.language
     # need to ensure db session is not used inside async stream directly; use SessionLocal there
     # commit already done; close outer? but outer will be closed after return
 
-    async def _safe_stream(msgs, with_tools: bool = True, force_no_tool: bool = False):
-        # helper to stay backward-compatible with old mocks that don't accept tools/tool_choice
+    async def _safe_stream(msgs, provider: str | None = None, model: str | None = None, tools: list[dict] | None = None, tool_choice: str | None = None, with_tools: bool | None = None, force_no_tool: bool = False):
+        # Determine effective provider/model
+        eff_provider = provider if provider is not None else payload.provider
+        eff_model = model if model is not None else saved_model
+        # Handle with_tools / force_no_tool legacy flags for backward compat
+        # force_no_tool means call with tool_choice="none" and no tools
         if force_no_tool:
+            # try with model + tool_choice none
             try:
-                async for ev in stream_chat(msgs, provider=payload.provider, tool_choice="none"):
+                async for ev in stream_chat(msgs, provider=eff_provider, model=eff_model, tool_choice="none"):
                     yield ev
                 return
             except TypeError as e:
-                if "tool_choice" in str(e) or "unexpected" in str(e):
-                    async for ev in stream_chat(msgs, provider=payload.provider):
-                        yield ev
-                    return
+                msg = str(e)
+                if "model" in msg or "tool_choice" in msg or "unexpected" in msg:
+                    try:
+                        async for ev in stream_chat(msgs, provider=eff_provider, tool_choice="none"):
+                            yield ev
+                        return
+                    except TypeError as e2:
+                        if "tool_choice" in str(e2) or "unexpected" in str(e2):
+                            async for ev in stream_chat(msgs, provider=eff_provider):
+                                yield ev
+                            return
+                        raise
                 raise
-        if with_tools:
-            try:
-                async for ev in stream_chat(msgs, provider=payload.provider, tools=TOOLS, tool_choice="auto"):
-                    yield ev
-                return
-            except TypeError as e:
-                if "tools" in str(e) or "tool_choice" in str(e) or "unexpected" in str(e):
-                    async for ev in stream_chat(msgs, provider=payload.provider):
-                        yield ev
-                    return
-                raise
-        else:
-            async for ev in stream_chat(msgs, provider=payload.provider):
+        # if caller used with_tools flag explicitly
+        if with_tools is not None:
+            if with_tools:
+                tools = TOOLS
+                tool_choice = "auto"
+            else:
+                tools = None
+                tool_choice = None
+        # if tools/tool_choice not explicitly provided but with_tools was True before, handled above
+        # Now forward to stream_chat with fallback for old mocks
+        # Normalize: if tools is None and tool_choice is None, just call with provider+model
+        try:
+            async for ev in stream_chat(msgs, provider=eff_provider, model=eff_model, tools=tools, tool_choice=tool_choice):
                 yield ev
+            return
+        except TypeError as e:
+            msg = str(e)
+            if "model" in msg or "tools" in msg or "tool_choice" in msg or "unexpected" in msg:
+                # try without model
+                try:
+                    async for ev in stream_chat(msgs, provider=eff_provider, tools=tools, tool_choice=tool_choice):
+                        yield ev
+                    return
+                except TypeError as e2:
+                    msg2 = str(e2)
+                    if "tools" in msg2 or "tool_choice" in msg2 or "unexpected" in msg2:
+                        # try with just model
+                        try:
+                            async for ev in stream_chat(msgs, provider=eff_provider, model=eff_model):
+                                yield ev
+                            return
+                        except TypeError as e3:
+                            if "model" in str(e3) or "unexpected" in str(e3):
+                                async for ev in stream_chat(msgs, provider=eff_provider):
+                                    yield ev
+                                return
+                            raise
+                    raise
+            raise
 
     async def event_stream():
         full_reply: list[str] = []
@@ -130,7 +171,11 @@ def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(N
                 got_tool_calls = None
                 # buffer delta for this turn
                 turn_had_delta = False
-                async for event in _safe_stream(outer_messages, with_tools=use_tools):
+                if use_tools:
+                    stream_iter = _safe_stream(outer_messages, provider=payload.provider, model=saved_model, tools=TOOLS, tool_choice="auto")
+                else:
+                    stream_iter = _safe_stream(outer_messages, provider=payload.provider, model=saved_model)
+                async for event in stream_iter:
                     # handle backward compat: string delta
                     if isinstance(event, str):
                         full_reply.append(event)
@@ -159,7 +204,7 @@ def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(N
                     if turn == 4:
                         # try to get final answer without tool choice
                         try:
-                            async for event in _safe_stream(outer_messages, with_tools=False, force_no_tool=True):
+                            async for event in _safe_stream(outer_messages, provider=payload.provider, model=saved_model, tool_choice="none", force_no_tool=True):
                                 if isinstance(event, str):
                                     full_reply.append(event)
                                     yield f"data: {json.dumps({'delta': event})}\n\n"

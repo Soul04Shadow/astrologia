@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.db import _migrate_existing_messages, init_db
-from app.routers import charts, chat, misc, profiles, sessions, translate
+from app.routers import charts, chat, misc, models, profiles, sessions, translate
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ app.include_router(charts.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
 app.include_router(translate.router, prefix="/api")
+app.include_router(models.router, prefix="/api")
 
 
 @app.exception_handler(ValueError)

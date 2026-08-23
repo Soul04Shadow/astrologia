@@ -19,10 +19,11 @@ def _headers(cfg: dict) -> dict:
 async def stream_chat(messages: list[dict], provider: str | None = None,
                       temperature: float | None = None,
                       tools: list[dict] | None = None,
-                      tool_choice: str | None = None) -> AsyncGenerator[dict, None]:
-    cfg = provider_config(provider)
+                      tool_choice: str | None = None,
+                      model: str | None = None) -> AsyncGenerator[dict, None]:
+    cfg = provider_config(provider, model)
     s = get_settings()
-    payload: dict = {"model": cfg["model"], "messages": messages,
+    payload: dict = {"model": model or cfg["model"], "messages": messages,
                "temperature": temperature if temperature is not None else s.temperature,
                "stream": True}
     if tools is not None:
@@ -131,10 +132,11 @@ async def stream_chat(messages: list[dict], provider: str | None = None,
 async def complete_chat(messages: list[dict], provider: str | None = None,
                         temperature: float | None = None,
                         tools: list[dict] | None = None,
-                        tool_choice: str | None = None) -> str:
-    cfg = provider_config(provider)
+                        tool_choice: str | None = None,
+                        model: str | None = None) -> str:
+    cfg = provider_config(provider, model)
     url = f"{cfg['base_url']}/chat/completions"
-    payload: dict = {"model": cfg["model"], "messages": messages,
+    payload: dict = {"model": model or cfg["model"], "messages": messages,
                "temperature": temperature if temperature is not None else get_settings().temperature}
     if tools is not None:
         payload["tools"] = tools

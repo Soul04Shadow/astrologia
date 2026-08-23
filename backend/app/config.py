@@ -50,15 +50,15 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def provider_config(provider: str | None = None) -> dict:
+def provider_config(provider: str | None = None, model: str | None = None) -> dict:
     s = get_settings()
     name = (provider or s.llm_provider).lower()
     base_url = getattr(s, f"{name}_base_url", None)
     api_key = getattr(s, f"{name}_api_key", None)
-    model = getattr(s, f"{name}_model", None)
+    resolved_model = model if model is not None else getattr(s, f"{name}_model", None)
     if not base_url:
         raise ValueError(f"Unknown provider '{name}'")
-    return {"name": name, "base_url": base_url.rstrip("/"), "api_key": api_key or "", "model": model or ""}
+    return {"name": name, "base_url": base_url.rstrip("/"), "api_key": api_key or "", "model": resolved_model or ""}
 
 
 def available_providers() -> list[dict]:

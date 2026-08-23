@@ -7,7 +7,7 @@ import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, ChevronLeft, Copy, Pencil, Plus, Sparkles, Trash2, UserRound } from "lucide-react";
-import { api, type ChatMessageItem, type ChatSession, type Profile } from "@/lib/api";
+import { api, type ChatMessageItem, type ChatSession, type ModelInfo, type Profile } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
 const LANGUAGES = [
@@ -59,6 +59,8 @@ export default function ChatPage() {
   const [language, setLanguage] = useState<"hinglish" | "hi" | "en">("hinglish");
   const [provider, setProvider] = useState<string>("");
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [model, setModel] = useState<string>("");
+  const [models, setModels] = useState<ModelInfo[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streamText, setStreamText] = useState("");
@@ -85,8 +87,21 @@ export default function ChatPage() {
     fetch(`${api.base}/api/providers`)
       .then((r) => r.json())
       .then((d) => {
-        setProviders(d.providers ?? []);
-        const ready = d.providers?.find?.((x: ProviderInfo) => x.ready);
+        const list: ProviderInfo[] = d.providers ?? [];
+        setProviders(list);
+        // restore from localStorage per profile
+        try {
+          const raw = localStorage.getItem(`chat:model:${id}`);
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved.provider && list.find((x) => x.id === saved.provider)) {
+              setProvider(saved.provider);
+              if (saved.model) setModel(saved.model);
+              return;
+            }
+          }
+        } catch {}
+        const ready = list.find((x: ProviderInfo) => x.ready);
         if (ready) setProvider(ready.id);
       })
       .catch(() => {});
@@ -106,6 +121,48 @@ export default function ChatPage() {
       .catch((e) => setError(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // provider -> model list, reset model to first on provider change, keep FREE/tools badge
+  useEffect(() => {
+    if (!provider) return;
+    api
+      .listModels(provider)
+      .then((list) => {
+        setModels(list);
+        if (list.length === 0) {
+          setModel("");
+          return;
+        }
+        // if current model not in new list, reset to first; also respect stored model for this provider if valid
+        const hasCurrent = list.find((m) => m.id === model);
+        if (!hasCurrent) {
+          // check stored model for this provider
+          try {
+            const raw = localStorage.getItem(`chat:model:${id}`);
+            if (raw) {
+              const saved = JSON.parse(raw);
+              if (saved.provider === provider && saved.model && list.find((m) => m.id === saved.model)) {
+                setModel(saved.model);
+                return;
+              }
+            }
+          } catch {}
+          setModel(list[0].id);
+        }
+      })
+      .catch(() => {
+        setModels([]);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, id]);
+
+  // persist provider+model combo per profile
+  useEffect(() => {
+    if (!provider) return;
+    try {
+      localStorage.setItem(`chat:model:${id}`, JSON.stringify({ provider, model }));
+    } catch {}
+  }, [provider, model, id]);
 
   // load session history when activeSessionId changes
   useEffect(() => {
@@ -263,7 +320,7 @@ export default function ChatPage() {
       const res = await fetch(`${api.base}/api/chat/${id}?session_id=${sid}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, language, provider: provider || null }),
+        body: JSON.stringify({ message: text, language, provider: provider || null, "model": model || null }),
       });
       if (!res.ok || !res.body) {
         let detail = res.statusText;
@@ -396,6 +453,23 @@ export default function ChatPage() {
                   {!p.ready && " · " + t("menu.nokey")}
                 </option>
               ))}
+            </select>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="rounded-lg border border-goldline bg-panel px-2 py-1.5 text-xs font-bold text-stone-600 max-w-[220px]"
+              aria-label="Model"
+              disabled={models.length === 0}
+            >
+              {models.length === 0 ? (
+                <option value="">{model || "—"}</option>
+              ) : (
+                models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label} {m.ctx} {m.free ? "FREE" : ""} {m.tools ? "" : "· no-tools"}
+                  </option>
+                ))
+              )}
             </select>
             <div className="flex rounded-lg border border-goldline bg-panel p-0.5">
               {LANGUAGES.map((l) => (

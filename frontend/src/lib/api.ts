@@ -130,6 +130,14 @@ export interface ChatSession {
   updated_at: string;
 }
 
+export interface ModelInfo {
+  id: string;
+  label: string;
+  ctx: string;
+  free: boolean;
+  tools: boolean;
+}
+
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
@@ -199,4 +207,8 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, target_language, provider: provider ?? null }),
     }).then((r) => jsonOrThrow<{ translated: string }>(r)),
+  listModels: (provider?: string) => {
+    const url = provider ? `${BASE}/api/models?provider=${encodeURIComponent(provider)}` : `${BASE}/api/models`;
+    return fetch(url).then((r) => jsonOrThrow<ModelInfo[]>(r));
+  },
 };
