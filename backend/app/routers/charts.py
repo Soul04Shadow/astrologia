@@ -3,9 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db import Profile, get_db
+from app.db import Profile, User, get_db
 from app.engine import compute_full_chart
 from app.schemas import ProfileCreate
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/charts", tags=["charts"])
 
@@ -25,7 +26,7 @@ def _chart_for_profile(profile: Profile) -> dict:
 
 
 @router.post("/preview")
-def preview_chart_post(payload: ProfileCreate, db: Session = Depends(get_db)):
+def preview_chart_post(payload: ProfileCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     y, m, d = (int(x) for x in payload.birth_date.split("-"))
     hh, mm = (int(x) for x in payload.birth_time.split(":"))
     try:
@@ -36,9 +37,9 @@ def preview_chart_post(payload: ProfileCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{profile_id}")
-def chart_for_profile(profile_id: int, db: Session = Depends(get_db)):
+def chart_for_profile(profile_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     profile = db.get(Profile, profile_id)
-    if not profile:
+    if not profile or profile.user_id != user.id:
         raise HTTPException(status_code=404, detail="Profile not found")
     try:
         chart = _chart_for_profile(profile)

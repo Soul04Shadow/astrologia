@@ -193,6 +193,23 @@ export interface ModelInfo {
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
+async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  try {
+    const { getSupabase } = await import("@/lib/auth");
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (token) {
+        const headers = new Headers(init.headers);
+        headers.set("Authorization", `Bearer ${token}`);
+        return fetch(url, { ...init, headers });
+      }
+    }
+  } catch {}
+  return fetch(url, init);
+}
+
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText;
@@ -207,55 +224,55 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
 
 export const api = {
   base: BASE,
-  listProfiles: () => fetch(`${BASE}/api/profiles`).then((r) => jsonOrThrow<Profile[]>(r)),
+  listProfiles: () => apiFetch(`${BASE}/api/profiles`).then((r) => jsonOrThrow<Profile[]>(r)),
   getProfile: (id: number | string) =>
-    fetch(`${BASE}/api/profiles/${id}`).then((r) => jsonOrThrow<Profile>(r)),
+    apiFetch(`${BASE}/api/profiles/${id}`).then((r) => jsonOrThrow<Profile>(r)),
   createProfile: (payload: Omit<Profile, "id" | "created_at">) =>
-    fetch(`${BASE}/api/profiles`, {
+    apiFetch(`${BASE}/api/profiles`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).then((r) => jsonOrThrow<Profile>(r)),
   deleteProfile: (id: number) =>
-    fetch(`${BASE}/api/profiles/${id}`, { method: "DELETE" }).then((r) => r.json()),
+    apiFetch(`${BASE}/api/profiles/${id}`, { method: "DELETE" }).then((r) => r.json()),
   geocode: (q: string) =>
-    fetch(`${BASE}/api/geocode?q=${encodeURIComponent(q)}`).then((r) =>
+    apiFetch(`${BASE}/api/geocode?q=${encodeURIComponent(q)}`).then((r) =>
       jsonOrThrow<{ results: PlaceResult[] }>(r),
     ),
   getChart: (id: number | string) =>
-    fetch(`${BASE}/api/charts/${id}`).then((r) =>
+    apiFetch(`${BASE}/api/charts/${id}`).then((r) =>
       jsonOrThrow<{ profile: { id: number; name: string }; chart: Chart }>(r),
     ),
   previewChart: (payload: Omit<Profile, "id" | "created_at"> & { name: string }) =>
-    fetch(`${BASE}/api/charts/preview`, {
+    apiFetch(`${BASE}/api/charts/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).then((r) => jsonOrThrow<{ name: string; chart: Chart }>(r)),
   history: (id: number | string) =>
-    fetch(`${BASE}/api/profiles/${id}/messages`).then((r) => jsonOrThrow<ChatMessageItem[]>(r)),
+    apiFetch(`${BASE}/api/profiles/${id}/messages`).then((r) => jsonOrThrow<ChatMessageItem[]>(r)),
   listSessions: (profileId: number | string) =>
-    fetch(`${BASE}/api/profiles/${profileId}/sessions`).then((r) => jsonOrThrow<ChatSession[]>(r)),
+    apiFetch(`${BASE}/api/profiles/${profileId}/sessions`).then((r) => jsonOrThrow<ChatSession[]>(r)),
   createSession: (profileId: number | string, title?: string) =>
-    fetch(`${BASE}/api/profiles/${profileId}/sessions`, {
+    apiFetch(`${BASE}/api/profiles/${profileId}/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: title ?? "New chat" }),
     }).then((r) => jsonOrThrow<ChatSession>(r)),
   renameSession: (profileId: number | string, sid: number | string, title: string) =>
-    fetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}`, {
+    apiFetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     }).then((r) => jsonOrThrow<ChatSession>(r)),
   deleteSession: (profileId: number | string, sid: number | string) =>
-    fetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}`, { method: "DELETE" }).then((r) => r.json()),
+    apiFetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}`, { method: "DELETE" }).then((r) => r.json()),
   sessionHistory: (profileId: number | string, sid: number | string) =>
-    fetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}/messages`).then((r) =>
+    apiFetch(`${BASE}/api/profiles/${profileId}/sessions/${sid}/messages`).then((r) =>
       jsonOrThrow<ChatMessageItem[]>(r),
     ),
   translate: (text: string, target_language: string, provider?: string | null) =>
-    fetch(`${BASE}/api/translate`, {
+    apiFetch(`${BASE}/api/translate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, target_language, provider: provider ?? null }),

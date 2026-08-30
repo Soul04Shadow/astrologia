@@ -8,6 +8,15 @@ import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, ChevronLeft, Copy, Pencil, Plus, RotateCw, Sparkles, Trash2, UserRound } from "lucide-react";
 import { api, type ChatMessageItem, type ChatSession, type ModelInfo, type Profile } from "@/lib/api";
+import { getSupabase } from "@/lib/auth";
+
+async function withAuthHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const supabase = getSupabase();
+  if (!supabase) return extra;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
 import { useI18n } from "@/lib/i18n";
 
 const LANGUAGES = [
@@ -184,6 +193,7 @@ export default function ChatPage() {
     try {
       const res = await fetch(`${api.base}/api/chat/${id}/stream?session_id=${sid}`, {
         signal: controller.signal,
+        headers: await withAuthHeaders(),
       });
       if (!res.ok || !res.body) return;
 
@@ -447,7 +457,7 @@ export default function ChatPage() {
     try {
       const res = await fetch(`${api.base}/api/chat/${id}?session_id=${sid}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await withAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ message: text, language, provider: provider || null, model: model || null }),
         signal: controller.signal,
       });

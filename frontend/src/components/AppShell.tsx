@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { useAuth, authEnabled } from "@/lib/auth";
 
 interface ProviderInfo {
   id: string;
@@ -32,6 +33,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { t, locale, setLocale } = useI18n();
+  const { session, loading: authLoading, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -71,8 +73,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const readyCount = providers.filter((p) => p.ready).length;
 
+  const authGate = authEnabled && !authLoading && !session;
+  const gateHi = locale === "hi";
+
   return (
     <div className="min-h-screen">
+      {authGate && (
+        <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-saffron-600 text-2xl font-bold text-white">
+            ॐ
+          </span>
+          <h1 className="mt-5 text-xl font-bold text-saffron-800">
+            {gateHi ? "साइन इन आवश्यक" : "Sign in required"}
+          </h1>
+          <p className="mt-1.5 text-sm text-stone-600">
+            {gateHi
+              ? "परामर्श ऐप तक पहुँचने के लिए Google से साइन इन करें।"
+              : "Sign in with Google to access the consultation app."}
+          </p>
+          <button
+            onClick={() => (window.location.href = "/login")}
+            className="mt-6 rounded-lg bg-saffron-600 px-6 py-3 text-sm font-bold text-white hover:bg-saffron-700"
+          >
+            {gateHi ? "Google से जारी रखें" : "Continue with Google"}
+          </button>
+        </div>
+      )}
+      {!authGate && (
+      <div className="min-h-screen">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-stone-900/30 md:hidden"
@@ -168,15 +196,41 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-gold bg-panel text-saffron-700 shadow-sm transition hover:bg-saffron-100"
-                aria-label="App info"
+                aria-label="Account"
               >
-                <UserRound size={17} />
+                {session?.user.user_metadata?.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={session.user.user_metadata.avatar_url}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-9 w-9 rounded-full border-2 border-gold object-cover shadow-sm transition hover:opacity-90"
+                  />
+                ) : (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-gold bg-panel text-saffron-700 shadow-sm transition hover:bg-saffron-100">
+                    <UserRound size={17} />
+                  </span>
+                )}
               </button>
 
               {menuOpen && (
                 <div className="absolute right-4 top-full mt-2 w-64 rounded-xl border border-goldline bg-panel p-4 shadow-xl">
-                  <p className="text-sm font-bold text-saffron-800">{t("menu.station")}</p>
+                  <p className="text-sm font-bold text-saffron-800">
+                    {session?.user.user_metadata?.name || session?.user.email || t("menu.station")}
+                  </p>
+                  {session?.user.email && (
+                    <p className="truncate text-xs text-stone-500">{session.user.email}</p>
+                  )}
+                  {session && (
+                    <button
+                      onClick={async () => {
+                        await signOut();
+                      }}
+                      className="mt-2.5 w-full rounded-lg border border-goldline py-1.5 text-xs font-bold text-stone-600 hover:bg-saffron-100"
+                    >
+                      {locale === "hi" ? "साइन आउट" : "Sign out"}
+                    </button>
+                  )}
                   <p className="mt-0.5 text-xs text-stone-500">{t("menu.mode")}</p>
                   <div className="my-3 border-t border-goldline" />
                   <p className="text-xs font-bold uppercase tracking-wide text-stone-500">
@@ -210,6 +264,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="mx-auto max-w-6xl px-3 py-5 sm:px-6">{children}</main>
       </div>
+      </div>
+      )}
     </div>
   );
 }

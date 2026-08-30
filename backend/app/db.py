@@ -12,10 +12,23 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    profiles: Mapped[list["Profile"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+
+
 class Profile(Base):
     __tablename__ = "profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
     birth_date: Mapped[str] = mapped_column(String(10))
     birth_time: Mapped[str] = mapped_column(String(5))
@@ -28,6 +41,7 @@ class Profile(Base):
 
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="profile", cascade="all, delete-orphan")
     sessions: Mapped[list["ChatSession"]] = relationship(back_populates="profile", cascade="all, delete-orphan")
+    owner: Mapped["User | None"] = relationship(back_populates="profiles")
 
 
 class ChatSession(Base):
@@ -103,6 +117,12 @@ def init_db() -> None:
                 with engine.begin() as conn:
                     conn.execute(text("ALTER TABLE chat_messages ADD COLUMN session_id INTEGER REFERENCES chat_sessions(id) ON DELETE CASCADE"))
                     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_chat_messages_session_id ON chat_messages (session_id)"))
+        if "profiles" in insp.get_table_names():
+            cols = [c["name"] for c in insp.get_columns("profiles")]
+            if "user_id" not in cols:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE profiles ADD COLUMN user_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_profiles_user_id ON profiles (user_id)"))
     except Exception:
         pass
     # ensure index exists even if column existed but index missing

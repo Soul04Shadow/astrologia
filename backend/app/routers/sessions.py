@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import ChatMessage, ChatSession, Profile, get_db
+from app.db import ChatMessage, ChatSession, Profile, User, get_db
 from app.schemas import ChatMessageOut
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/profiles", tags=["sessions"])
 
@@ -32,16 +33,16 @@ class SessionRename(BaseModel):
     title: str = Field(min_length=1, max_length=80)
 
 
-def _get_profile_or_404(db: Session, profile_id: int) -> Profile:
+def _get_profile_or_404(db: Session, profile_id: int, user: User) -> Profile:
     profile = db.get(Profile, profile_id)
-    if not profile:
+    if not profile or profile.user_id != user.id:
         raise HTTPException(status_code=404, detail="Profile not found")
     return profile
 
 
 @router.post("/{profile_id}/sessions", response_model=SessionOut, status_code=201)
-def create_session(profile_id: int, payload: SessionCreate | None = None, db: Session = Depends(get_db)):
-    _get_profile_or_404(db, profile_id)
+def create_session(profile_id: int, payload: SessionCreate | None = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _get_profile_or_404(db, profile_id, user)
     title = (payload.title.strip() if payload and payload.title else None) or "New chat"
     # truncate to 40 as per spec for auto title? spec says title from first 40 chars
     if len(title) > 80:
@@ -54,8 +55,8 @@ def create_session(profile_id: int, payload: SessionCreate | None = None, db: Se
 
 
 @router.get("/{profile_id}/sessions", response_model=list[SessionOut])
-def list_sessions(profile_id: int, db: Session = Depends(get_db)):
-    _get_profile_or_404(db, profile_id)
+def list_sessions(profile_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _get_profile_or_404(db, profile_id, user)
     # ensure default exists for backwards compat
     existing = db.scalars(select(ChatSession).where(ChatSession.profile_id == profile_id)).all()
     if not existing:
@@ -70,8 +71,8 @@ def list_sessions(profile_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{profile_id}/sessions/{sid}/messages", response_model=list[ChatMessageOut])
-def session_messages(profile_id: int, sid: int, db: Session = Depends(get_db)):
-    _get_profile_or_404(db, profile_id)
+def session_messages(profile_id: int, sid: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _get_profile_or_404(db, profile_id, user)
     sess = db.get(ChatSession, sid)
     if not sess or sess.profile_id != profile_id:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -80,8 +81,8 @@ def session_messages(profile_id: int, sid: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{profile_id}/sessions/{sid}", response_model=SessionOut)
-def rename_session(profile_id: int, sid: int, payload: SessionRename, db: Session = Depends(get_db)):
-    _get_profile_or_404(db, profile_id)
+def rename_session(profile_id: int, sid: int, payload: SessionRename, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _get_profile_or_404(db, profile_id, user)
     sess = db.get(ChatSession, sid)
     if not sess or sess.profile_id != profile_id:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -94,8 +95,8 @@ def rename_session(profile_id: int, sid: int, payload: SessionRename, db: Sessio
 
 
 @router.delete("/{profile_id}/sessions/{sid}")
-def delete_session(profile_id: int, sid: int, db: Session = Depends(get_db)):
-    _get_profile_or_404(db, profile_id)
+def delete_session(profile_id: int, sid: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _get_profile_or_404(db, profile_id, user)
     sess = db.get(ChatSession, sid)
     if not sess or sess.profile_id != profile_id:
         raise HTTPException(status_code=404, detail="Session not found")

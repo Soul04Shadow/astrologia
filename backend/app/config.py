@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./app.db"
     cors_origins: str = "http://localhost:3000"
 
+    supabase_url: str = ""
+    supabase_jwt_secret: str = ""
+    allowed_emails: str = ""
+    admin_emails: str = ""
+
     llm_provider: str = "zen"
     zen_base_url: str = "https://opencode.ai/zen/v1"
     zen_api_key: str = ""

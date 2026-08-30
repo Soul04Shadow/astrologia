@@ -10,9 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings, provider_config
-from app.db import ChatMessage, ChatSession, Profile, get_db
+from app.db import ChatMessage, ChatSession, Profile, User, get_db
 from app.routers.charts import _chart_for_profile
 from app.schemas import ChatRequest
+from app.services.auth import get_current_user
 from app.services.prompt import build_system_prompt
 from app.services.stream_hub import hub, run_background_generation, stream_chat
 
@@ -41,9 +42,9 @@ def _get_or_create_default_session(db: Session, profile_id: int) -> ChatSession:
 
 
 @router.post("/{profile_id}")
-async def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(None), db: Session = Depends(get_db)):
+async def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(None), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     profile = db.get(Profile, profile_id)
-    if not profile:
+    if not profile or profile.user_id != user.id:
         raise HTTPException(status_code=404, detail="Profile not found")
 
     # resolve session
@@ -106,7 +107,10 @@ async def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Q
 
 
 @router.get("/{profile_id}/stream")
-async def chat_stream(profile_id: int, session_id: int = Query(...)):
+async def chat_stream(profile_id: int, session_id: int = Query(...), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    profile = db.get(Profile, profile_id)
+    if not profile or profile.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
     stream = hub.get_stream(profile_id, session_id)
     if stream and not stream.is_done:
         return StreamingResponse(
@@ -122,7 +126,7 @@ async def chat_stream(profile_id: int, session_id: int = Query(...)):
 
 
 @router.get("/{profile_id}/status")
-def chat_status(profile_id: int, session_id: int = Query(...)):
+def chat_status(profile_id: int, session_id: int = Query(...), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return {
         "active": hub.is_active(profile_id, session_id),
         "session_id": session_id,
