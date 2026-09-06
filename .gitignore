@@ -11,6 +11,7 @@ out/
 *.env
 backend/.env
 backend/app.db
+backend/test.db
 backend/*.pdf
 
 # python
