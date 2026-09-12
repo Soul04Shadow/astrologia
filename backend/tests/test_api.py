@@ -24,7 +24,10 @@ def test_health_and_providers():
         r = client.get("/api/providers")
         assert r.status_code == 200
         ids = [p["id"] for p in r.json()["providers"]]
-        assert {"gemini", "groq", "openrouter", "lmstudio", "ollama"} <= set(ids)
+        assert {"cliproxy", "gemini", "groq", "openrouter", "lmstudio", "ollama"} <= set(ids)
+        models_r = client.get("/api/models?provider=cliproxy")
+        assert models_r.status_code == 200
+        assert len(models_r.json()) > 0
 
 
 def test_profile_crud_and_chart():

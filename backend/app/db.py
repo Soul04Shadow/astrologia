@@ -74,7 +74,18 @@ class ChatMessage(Base):
 
 
 _settings = get_settings()
-engine = create_engine(_settings.database_url, connect_args={"check_same_thread": False})
+
+_connect_args: dict = {}
+if _settings.database_url.startswith("sqlite"):
+    _connect_args["check_same_thread"] = False
+elif _settings.database_url.startswith("postgresql"):
+    _connect_args["prepare_threshold"] = None
+
+engine = create_engine(
+    _settings.database_url,
+    connect_args=_connect_args,
+    pool_pre_ping=True,
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 

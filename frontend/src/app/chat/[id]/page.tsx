@@ -588,7 +588,7 @@ export default function ChatPage() {
             >
               {providers.map((p) => (
                 <option key={p.id} value={p.id} disabled={!p.ready}>
-                  {p.id}
+                  {p.id === "cliproxy" ? "CLIProxy (Antigravity)" : p.id}
                   {!p.ready && " · " + t("menu.nokey")}
                 </option>
               ))}

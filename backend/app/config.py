@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     admin_emails: str = ""
 
     llm_provider: str = "zen"
+    cliproxy_base_url: str = "http://127.0.0.1:8317/v1"
+    cliproxy_api_key: str = ""
+    cliproxy_model: str = "gemini-3.8-flash"
+
     zen_base_url: str = "https://opencode.ai/zen/v1"
     zen_api_key: str = ""
     zen_model: str = "ox-alpha-free"
@@ -68,7 +72,7 @@ def provider_config(provider: str | None = None, model: str | None = None) -> di
 
 def available_providers() -> list[dict]:
     out = []
-    for name in ["zen", "nvidia", "groq", "openrouter", "gemini", "lmstudio", "ollama"]:
+    for name in ["cliproxy", "zen", "nvidia", "groq", "openrouter", "gemini", "lmstudio", "ollama"]:
         try:
             cfg = provider_config(name)
             ready = bool(cfg["model"]) and (bool(cfg["api_key"]) or name in ("lmstudio", "ollama"))

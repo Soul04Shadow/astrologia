@@ -25,3 +25,10 @@ __pycache__/
 # misc
 .DS_Store
 *.log
+.playwright-mcp/
+.impeccable/
+graphify-out/
+.graphifyignore
+.agents/
+.agents-disabled/
+skills-lock.json

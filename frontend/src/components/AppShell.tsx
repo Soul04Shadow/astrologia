@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -32,6 +32,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { t, locale, setLocale } = useI18n();
   const { session, loading: authLoading, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
@@ -39,6 +40,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (authEnabled && !authLoading) {
+      if (!session && pathname !== "/login") {
+        router.replace("/login");
+      } else if (session && pathname === "/login") {
+        router.replace("/");
+      }
+    }
+  }, [session, authLoading, pathname, router]);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
@@ -73,34 +84,53 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const readyCount = providers.filter((p) => p.ready).length;
 
-  const authGate = authEnabled && !authLoading && !session;
-  const gateHi = locale === "hi";
+  if (authEnabled && authLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-4 text-center">
+        <div className="flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-saffron-600 text-3xl font-bold text-white shadow-md">
+          ॐ
+        </div>
+        <p className="mt-4 text-sm font-semibold tracking-wide text-saffron-800">
+          {locale === "hi" ? "कृपया प्रतीक्षा करें..." : "Loading..."}
+        </p>
+      </div>
+    );
+  }
+
+  if (pathname === "/login") {
+    return (
+      <div className="min-h-screen bg-cream">
+        <header className="flex items-center justify-end px-6 py-4">
+          <button
+            onClick={() => setLocale(locale === "en" ? "hi" : "en")}
+            className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-3 py-1.5 text-xs font-bold text-saffron-800 shadow-sm hover:bg-saffron-100"
+            aria-label="Switch language / भाषा बदलें"
+            title="EN ↔ हिंदी"
+          >
+            <Languages size={15} />
+            {locale === "en" ? "हिंदी" : "English"}
+          </button>
+        </header>
+        <main className="px-4">{children}</main>
+      </div>
+    );
+  }
+
+  if (authEnabled && !session) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-4 text-center">
+        <div className="flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-saffron-600 text-3xl font-bold text-white shadow-md">
+          ॐ
+        </div>
+        <p className="mt-4 text-sm font-semibold tracking-wide text-saffron-800">
+          {locale === "hi" ? "लॉगिन पृष्ठ पर ले जाया जा रहा है..." : "Redirecting to login..."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
-      {authGate && (
-        <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-saffron-600 text-2xl font-bold text-white">
-            ॐ
-          </span>
-          <h1 className="mt-5 text-xl font-bold text-saffron-800">
-            {gateHi ? "साइन इन आवश्यक" : "Sign in required"}
-          </h1>
-          <p className="mt-1.5 text-sm text-stone-600">
-            {gateHi
-              ? "परामर्श ऐप तक पहुँचने के लिए Google से साइन इन करें।"
-              : "Sign in with Google to access the consultation app."}
-          </p>
-          <button
-            onClick={() => (window.location.href = "/login")}
-            className="mt-6 rounded-lg bg-saffron-600 px-6 py-3 text-sm font-bold text-white hover:bg-saffron-700"
-          >
-            {gateHi ? "Google से जारी रखें" : "Continue with Google"}
-          </button>
-        </div>
-      )}
-      {!authGate && (
-      <div className="min-h-screen">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-stone-900/30 md:hidden"
@@ -264,8 +294,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="mx-auto max-w-6xl px-3 py-5 sm:px-6">{children}</main>
       </div>
-      </div>
-      )}
     </div>
   );
 }

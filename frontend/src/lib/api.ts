@@ -195,18 +195,24 @@ const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
 async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   try {
-    const { getSupabase } = await import("@/lib/auth");
-    const supabase = getSupabase();
-    if (supabase) {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (token) {
-        const headers = new Headers(init.headers);
-        headers.set("Authorization", `Bearer ${token}`);
-        return fetch(url, { ...init, headers });
+    const { getSupabase, authEnabled } = await import("@/lib/auth");
+    if (authEnabled) {
+      const supabase = getSupabase();
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (token) {
+          const headers = new Headers(init.headers);
+          headers.set("Authorization", `Bearer ${token}`);
+          return fetch(url, { ...init, headers });
+        } else {
+          console.warn("apiFetch: authEnabled is true but no access_token found in session for", url);
+        }
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn("apiFetch: Failed to attach auth token:", err);
+  }
   return fetch(url, init);
 }
 

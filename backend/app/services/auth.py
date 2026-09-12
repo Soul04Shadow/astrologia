@@ -12,23 +12,18 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_db, User
 
+import logging
+
+logger = logging.getLogger("uvicorn.error")
+
 _bearer = HTTPBearer(auto_error=False)
-_jwks_cache: dict = {"keys": None, "fetched_at": 0.0}
-JWKS_TTL = 3600
+_jwks_clients: dict[str, jwt.PyJWKClient] = {}
 
 
-def _jwks() -> dict:
-    s = get_settings()
-    now = time.time()
-    if _jwks_cache["keys"] and now - _jwks_cache["fetched_at"] < JWKS_TTL:
-        return {"keys": _jwks_cache["keys"]}
-    url = f"{s.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
-    resp = httpx.get(url, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    _jwks_cache["keys"] = data.get("keys", [])
-    _jwks_cache["fetched_at"] = now
-    return data
+def _get_jwks_client(jwks_url: str) -> jwt.PyJWKClient:
+    if jwks_url not in _jwks_clients:
+        _jwks_clients[jwks_url] = jwt.PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=3600)
+    return _jwks_clients[jwks_url]
 
 
 def verify_supabase_token(token: str) -> dict:
@@ -36,40 +31,60 @@ def verify_supabase_token(token: str) -> dict:
     try:
         header = jwt.get_unverified_header(token)
     except jwt.PyJWTError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}") from e
+        logger.warning("Failed to decode token header: %s", e)
+        raise HTTPException(status_code=401, detail=f"Invalid token header: {e}") from e
 
-    if s.supabase_jwt_secret:
+    alg = header.get("alg", "HS256")
+    kid = header.get("kid")
+    logger.info("Verifying Supabase token: alg=%s, kid=%s", alg, kid)
+
+    claims: dict | None = None
+    last_error: Exception | None = None
+
+    # 1. Asymmetric key (ES256 / RS256) via JWKS
+    if s.supabase_url and (alg in ("ES256", "RS256") or kid):
         try:
+            jwks_url = f"{s.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+            jwks_client = _get_jwks_client(jwks_url)
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
             claims = jwt.decode(
-                token, s.supabase_jwt_secret, algorithms=["HS256"],
-                audience="authenticated", options={"verify_aud": False},
-            )
-        except jwt.PyJWTError as e:
-            raise HTTPException(status_code=401, detail=f"Invalid token: {e}") from e
-    else:
-        kid = header.get("kid")
-        keys = _jwks().get("keys", [])
-        key = next((k for k in keys if k.get("kid") == kid), None)
-        if not key:
-            _jwks_cache["keys"] = None
-            keys = _jwks().get("keys", [])
-            key = next((k for k in keys if k.get("kid") == kid), None)
-        if not key:
-            raise HTTPException(status_code=401, detail="Unknown token key id")
-        try:
-            claims = jwt.decode(
-                token, key, algorithms=[header.get("alg", "ES256")],
+                token,
+                signing_key.key,
+                algorithms=[alg],
                 options={"verify_aud": False},
             )
-        except jwt.PyJWTError as e:
-            raise HTTPException(status_code=401, detail=f"Invalid token: {e}") from e
+            logger.info("Successfully verified token using Supabase JWKS (%s)", alg)
+        except Exception as e:
+            last_error = e
+            logger.warning("JWKS token verification failed: %s", e)
+
+    # 2. Symmetric HS256 secret verification fallback
+    if claims is None and s.supabase_jwt_secret:
+        try:
+            claims = jwt.decode(
+                token,
+                s.supabase_jwt_secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+            logger.info("Successfully verified token using SUPABASE_JWT_SECRET (HS256)")
+        except Exception as e:
+            last_error = e
+            logger.debug("HS256 secret verification failed: %s", e)
+
+    if claims is None:
+        err_msg = f"Invalid token: {last_error}" if last_error else "Invalid token"
+        logger.warning("Supabase token rejected: %s", err_msg)
+        raise HTTPException(status_code=401, detail=err_msg)
 
     sub = claims.get("sub")
-    email = claims.get("email") or ""
+    email = claims.get("email") or claims.get("user_metadata", {}).get("email") or ""
     if not sub:
         raise HTTPException(status_code=401, detail="Token missing subject")
-    return {"id": sub, "email": email, "name": claims.get("user_metadata", {}).get("name") or claims.get("name") or "",
-            "avatar_url": claims.get("user_metadata", {}).get("avatar_url") or claims.get("picture") or ""}
+
+    name = claims.get("user_metadata", {}).get("name") or claims.get("name") or ""
+    avatar_url = claims.get("user_metadata", {}).get("avatar_url") or claims.get("picture") or ""
+    return {"id": sub, "email": email, "name": name, "avatar_url": avatar_url}
 
 
 def _upsert_user(db: Session, info: dict) -> User:
@@ -100,6 +115,7 @@ def get_current_user(
         return user
 
     if credentials is None:
+        logger.warning("get_current_user: No Bearer credentials provided in request")
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     info = verify_supabase_token(credentials.credentials)
@@ -107,6 +123,7 @@ def get_current_user(
 
     allowed = [e.strip().lower() for e in s.allowed_emails.split(",") if e.strip()]
     if allowed and email.lower() not in allowed:
+        logger.warning("get_current_user: Email '%s' not in ALLOWED_EMAILS (%s)", email, allowed)
         raise HTTPException(status_code=403, detail="Email not in beta allowlist")
 
     user = _upsert_user(db, info)

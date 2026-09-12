@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 CATALOG: dict[str, list[dict]] = {
+    "cliproxy": [
+        {"id": "gemini-3.8-flash", "label": "Gemini 3.8 Flash (Antigravity)", "ctx": "1M", "free": False, "tools": True},
+        {"id": "gemini-3.7-flash", "label": "Gemini 3.7 Flash (Antigravity)", "ctx": "1M", "free": False, "tools": True},
+        {"id": "gemini-pro-agent", "label": "Gemini Pro Agent (Antigravity)", "ctx": "1M", "free": False, "tools": True},
+        {"id": "claude-sonnet-4-6", "label": "Claude Sonnet 4.6 (Antigravity)", "ctx": "200K", "free": False, "tools": True},
+        {"id": "claude-opus-4-6-thinking", "label": "Claude Opus 4.6 Thinking (Antigravity)", "ctx": "200K", "free": False, "tools": True},
+    ],
     "zen": [
         {"id": "ox-alpha-free", "label": "Ox Alpha", "ctx": "1M", "free": True, "tools": True},
         {"id": "big-pickle", "label": "Big Pickle", "ctx": "1M", "free": True, "tools": True},

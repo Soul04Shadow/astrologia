@@ -5,20 +5,25 @@ import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type Profile } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { useAuth, authEnabled } from "@/lib/auth";
 
 export default function DashboardPage() {
   const { t } = useI18n();
+  const { session, loading: authLoading } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authEnabled && (authLoading || !session)) return;
+    setLoading(true);
+    setError("");
     api
       .listProfiles()
       .then(setProfiles)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [session, authLoading]);
 
   return (
     <div>

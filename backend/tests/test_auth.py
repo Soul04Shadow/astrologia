@@ -62,3 +62,33 @@ def test_chat_stream_ownership():
 
         _login_as(USER_A)
         client.delete(f"/api/profiles/{pid}")
+
+
+def test_verify_supabase_token_hs256(monkeypatch):
+    import jwt
+    from app.config import Settings
+    from app.services.auth import verify_supabase_token
+
+    monkeypatch.setattr(
+        "app.services.auth.get_settings",
+        lambda: Settings(supabase_jwt_secret="testsecret123", supabase_url=""),
+    )
+    token = jwt.encode(
+        {"sub": "u-123", "email": "test@domain.com", "name": "Test User"},
+        "testsecret123",
+        algorithm="HS256",
+    )
+    info = verify_supabase_token(token)
+    assert info["id"] == "u-123"
+    assert info["email"] == "test@domain.com"
+    assert info["name"] == "Test User"
+
+
+def test_verify_supabase_token_invalid():
+    import pytest
+    from fastapi import HTTPException
+    from app.services.auth import verify_supabase_token
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_supabase_token("invalid.token.format")
+    assert exc_info.value.status_code == 401
