@@ -192,45 +192,50 @@ export default function DashboardPage() {
       )}
 
       {/* Horoscope Dossier Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {filteredProfiles.map((p) => {
           const isActive = activeProfileId === String(p.id);
           return (
             <div
               key={p.id}
-              className={`group relative flex flex-col justify-between rounded-2xl border bg-panel p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+              className={`group relative flex flex-col justify-between rounded-2xl border bg-panel p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                 isActive
                   ? "border-saffron-600/70 ring-1 ring-saffron-600/30"
                   : "border-goldline hover:border-gold"
               }`}
             >
               <div>
-                {/* Header Row: Avatar, Name, and Quick Actions */}
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-saffron-600 via-saffron-700 to-saffron-900 font-serif text-lg font-bold text-amber-100 shadow-2xs border border-gold/30">
-                    {p.name.charAt(0).toUpperCase()}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <h2 className="truncate font-serif text-lg font-bold text-ink group-hover:text-saffron-900 transition">
-                        {p.name}
-                      </h2>
-                      {isActive && (
-                        <span className="shrink-0 rounded-full bg-saffron-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs">
-                          {t("dash.active_badge")}
-                        </span>
-                      )}
+                {/* Header Row: Avatar, Name & Meta, and Actions */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-saffron-600 via-saffron-700 to-saffron-900 font-serif text-lg font-bold text-amber-100 shadow-2xs border border-gold/30">
+                      {p.name.charAt(0).toUpperCase()}
                     </div>
 
-                    <div className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-saffron-800">
-                      <Calendar size={13} className="text-saffron-600 shrink-0" />
-                      <span className="tabular-nums">{p.birth_date}</span>
+                    <div className="min-w-0 flex-1">
+                      <h2
+                        className="truncate text-base font-bold text-ink group-hover:text-saffron-900 transition"
+                        title={p.name}
+                      >
+                        {p.name}
+                      </h2>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-saffron-800">
+                        <div className="flex items-center gap-1">
+                          <Calendar size={13} className="text-saffron-600 shrink-0" />
+                          <span className="whitespace-nowrap tabular-nums">{p.birth_date}</span>
+                        </div>
+                        {isActive && (
+                          <span className="rounded-full bg-saffron-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs">
+                            {t("dash.active_badge")}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {/* Secondary Actions (Edit & Delete) */}
-                  <div className="flex items-center gap-0.5 opacity-80 group-hover:opacity-100 transition">
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-80 group-hover:opacity-100 transition">
                     <Link
                       href={`/profiles/${p.id}/edit`}
                       onClick={() => selectProfile(p)}
