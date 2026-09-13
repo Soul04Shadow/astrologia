@@ -10,8 +10,12 @@ import {
   Circle,
   Languages,
   Menu,
+  MessageSquare,
+  Pencil,
+  PlusCircle,
   ScrollText,
-  Sparkle,
+  Sparkles,
+  Sun,
   UserRound,
   Users,
   X,
@@ -25,10 +29,10 @@ interface ProviderInfo {
   ready: boolean;
 }
 
-const NAV = [
-  { href: "/", label: "People", icon: Users },
-  { href: "/profiles/new", label: "New Kundli", icon: Sparkle },
-];
+interface ActiveProfile {
+  id: string;
+  name: string;
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
@@ -41,7 +45,51 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [activeProfile, setActiveProfile] = useState<ActiveProfile | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync active profile from pathname, localStorage, or custom events
+  useEffect(() => {
+    function loadSavedProfile() {
+      const savedId = localStorage.getItem("active-profile-id");
+      const savedName = localStorage.getItem("active-profile-name");
+      if (savedId && savedName) {
+        setActiveProfile({ id: savedId, name: savedName });
+      }
+    }
+
+    const profileMatch = pathname.match(/^\/(?:profiles|chat)\/([0-9]+)/);
+    const idFromPath = profileMatch ? profileMatch[1] : null;
+
+    if (idFromPath) {
+      const savedId = localStorage.getItem("active-profile-id");
+      const savedName = localStorage.getItem("active-profile-name");
+      if (savedId === idFromPath && savedName) {
+        setActiveProfile({ id: idFromPath, name: savedName });
+      } else {
+        // Fetch profile to resolve name
+        fetch(`${API_BASE}/api/profiles/${idFromPath}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.name) {
+              localStorage.setItem("active-profile-id", idFromPath);
+              localStorage.setItem("active-profile-name", data.name);
+              setActiveProfile({ id: idFromPath, name: data.name });
+            }
+          })
+          .catch(() => {});
+      }
+    } else {
+      loadSavedProfile();
+    }
+
+    function handleProfileChange() {
+      loadSavedProfile();
+    }
+
+    window.addEventListener("active-profile-changed", handleProfileChange);
+    return () => window.removeEventListener("active-profile-changed", handleProfileChange);
+  }, [pathname]);
 
   useEffect(() => {
     if (authEnabled && !authLoading) {
@@ -88,10 +136,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const isSubpage = pathname !== "/" && pathname !== "/login";
   let pageTitle = "";
-  if (pathname === "/") pageTitle = locale === "hi" ? "जातक सूची" : "People";
+  if (pathname === "/") pageTitle = locale === "hi" ? "जातक पत्रिकाएँ" : "Horoscopes";
   else if (pathname === "/profiles/new") pageTitle = locale === "hi" ? "नई कुंडली" : "New Kundli";
   else if (pathname.includes("/edit")) pageTitle = locale === "hi" ? "संशोधन" : "Edit Profile";
-  else if (pathname.startsWith("/chat/")) pageTitle = locale === "hi" ? "एआई परामर्श" : "Consultation";
+  else if (pathname.startsWith("/chat/")) pageTitle = locale === "hi" ? "दैवज्ञ परामर्श" : "Consultation";
   else if (pathname.startsWith("/profiles/")) pageTitle = locale === "hi" ? "जन्म कुंडली" : "Kundli Chart";
 
   if (authEnabled && authLoading) {
@@ -153,15 +201,49 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           collapsed ? "w-[68px]" : "w-60"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
-        <div className="flex items-center gap-2.5 border-b border-goldline px-4 py-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-saffron-600 text-base font-bold text-white">
-            ॐ
-          </span>
-          {!collapsed && (
-            <span className="truncate text-[15px] font-bold leading-tight tracking-tight text-saffron-800">
-              {t("app.name")}
-            </span>
-          )}
+        <div className="flex items-center gap-2.5 border-b border-goldline px-3.5 py-3.5">
+          <Link
+            href={activeProfile?.id ? `/profiles/${activeProfile.id}` : "/"}
+            className="group flex min-w-0 items-center gap-2.5 transition focus:outline-hidden"
+            title={
+              activeProfile?.id
+                ? locale === "hi"
+                  ? `जन्म पत्रिका: ${activeProfile.name}`
+                  : `Active Kundli: ${activeProfile.name}`
+                : t("app.name")
+            }
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-saffron-600 via-saffron-700 to-saffron-900 text-amber-100 shadow-2xs border border-gold/40 group-hover:border-gold group-hover:scale-105 transition-transform">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5 fill-none stroke-current"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" />
+                <path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" />
+                <path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" />
+                <path d="m19.07 4.93-1.41 1.41" />
+                <circle cx="12" cy="12" r="1.3" fill="currentColor" />
+              </svg>
+            </div>
+            {!collapsed && (
+              <div className="flex flex-col min-w-0">
+                <span className="truncate font-serif text-[15px] font-bold leading-tight tracking-wide text-saffron-900 group-hover:text-saffron-700 transition">
+                  {t("app.name")}
+                </span>
+                <span className="truncate text-[10px] font-semibold tracking-wider text-saffron-700/85">
+                  {t("app.tagline")}
+                </span>
+              </div>
+            )}
+          </Link>
           <button
             onClick={() => setMobileOpen(false)}
             className="ml-auto rounded-md p-1 text-stone-500 hover:bg-saffron-100 md:hidden"
@@ -171,27 +253,152 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex flex-col gap-1 px-2.5 py-3">
-          {NAV.map((item) => {
-            const active =
-              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                  active
-                    ? "bg-saffron-600 text-white"
-                    : "text-saffron-800 hover:bg-saffron-100"
-                } ${collapsed ? "justify-center px-0" : ""}`}
-              >
-                <item.icon size={17} strokeWidth={2.2} />
-                {!collapsed && t(item.href === "/" ? "nav.people" : "nav.new")}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex-1 overflow-y-auto py-3">
+          {/* Active Profile Context Section */}
+          {activeProfile && (
+            <div className="mb-2">
+              {!collapsed ? (
+                <div className="mb-1.5 flex items-center justify-between px-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    {t("nav.active_section")}
+                  </span>
+                  <Link
+                    href="/"
+                    className="text-[11px] font-semibold text-saffron-700 hover:text-saffron-900 hover:underline transition"
+                    title={t("nav.switch")}
+                  >
+                    {t("nav.switch")}
+                  </Link>
+                </div>
+              ) : null}
+
+              {!collapsed && (
+                <div className="mx-2.5 mb-2 flex items-center gap-2 rounded-xl border border-goldline/70 bg-panel/90 px-2.5 py-1.5 shadow-2xs">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-saffron-100 border border-gold/40 font-serif text-xs font-bold text-saffron-900">
+                    {activeProfile.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-ink leading-none">{activeProfile.name}</p>
+                    <p className="truncate text-[9px] font-medium text-stone-500 mt-0.5">
+                      {locale === "hi" ? "सक्रिय जातक" : "Active Chart"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <nav className="flex flex-col gap-1 px-2.5">
+                {/* Kundli Chart */}
+                <Link
+                  href={`/profiles/${activeProfile.id}`}
+                  title={t("nav.chart")}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    pathname === `/profiles/${activeProfile.id}`
+                      ? "bg-saffron-600 text-white font-bold shadow-2xs"
+                      : "text-stone-700 hover:bg-saffron-100 hover:text-saffron-900"
+                  } ${collapsed ? "justify-center px-0 py-2.5" : ""}`}
+                >
+                  <Sun
+                    size={17}
+                    strokeWidth={2.2}
+                    className={
+                      pathname === `/profiles/${activeProfile.id}` ? "text-amber-200" : "text-saffron-700"
+                    }
+                  />
+                  {!collapsed && <span>{t("nav.chart")}</span>}
+                </Link>
+
+                {/* AI Consultation */}
+                <Link
+                  href={`/chat/${activeProfile.id}`}
+                  title={t("nav.consult")}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    pathname.startsWith(`/chat/${activeProfile.id}`)
+                      ? "bg-saffron-600 text-white font-bold shadow-2xs"
+                      : "text-stone-700 hover:bg-saffron-100 hover:text-saffron-900"
+                  } ${collapsed ? "justify-center px-0 py-2.5" : ""}`}
+                >
+                  <Sparkles
+                    size={17}
+                    strokeWidth={2.2}
+                    className={
+                      pathname.startsWith(`/chat/${activeProfile.id}`) ? "text-amber-200" : "text-saffron-700"
+                    }
+                  />
+                  {!collapsed && <span>{t("nav.consult")}</span>}
+                </Link>
+
+                {/* Edit Birth Details */}
+                <Link
+                  href={`/profiles/${activeProfile.id}/edit`}
+                  title={t("nav.edit")}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    pathname === `/profiles/${activeProfile.id}/edit`
+                      ? "bg-saffron-600 text-white font-bold shadow-2xs"
+                      : "text-stone-700 hover:bg-saffron-100 hover:text-saffron-900"
+                  } ${collapsed ? "justify-center px-0 py-2.5" : ""}`}
+                >
+                  <Pencil
+                    size={16}
+                    strokeWidth={2.2}
+                    className={
+                      pathname === `/profiles/${activeProfile.id}/edit` ? "text-amber-200" : "text-stone-600"
+                    }
+                  />
+                  {!collapsed && <span>{t("nav.edit")}</span>}
+                </Link>
+              </nav>
+
+              <div className="my-2.5 border-t border-goldline/60 mx-3" />
+            </div>
+          )}
+
+          {/* Global Library Section */}
+          {!collapsed && activeProfile && (
+            <div className="mb-1.5 px-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                {locale === "hi" ? "संग्रह" : "Library"}
+              </span>
+            </div>
+          )}
+
+          <nav className="flex flex-col gap-1 px-2.5">
+            {/* All Horoscopes / People */}
+            <Link
+              href="/"
+              title={t("nav.people")}
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                pathname === "/"
+                  ? "bg-saffron-600 text-white font-bold shadow-2xs"
+                  : "text-stone-700 hover:bg-saffron-100 hover:text-saffron-900"
+              } ${collapsed ? "justify-center px-0" : ""}`}
+            >
+              <Users
+                size={17}
+                strokeWidth={2.2}
+                className={pathname === "/" ? "text-amber-200" : "text-saffron-700"}
+              />
+              {!collapsed && <span>{t("nav.people")}</span>}
+            </Link>
+
+            {/* New Kundli */}
+            <Link
+              href="/profiles/new"
+              title={t("nav.new")}
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                pathname === "/profiles/new"
+                  ? "bg-saffron-600 text-white font-bold shadow-2xs"
+                  : "text-stone-700 hover:bg-saffron-100 hover:text-saffron-900"
+              } ${collapsed ? "justify-center px-0" : ""}`}
+            >
+              <PlusCircle
+                size={17}
+                strokeWidth={2.2}
+                className={pathname === "/profiles/new" ? "text-amber-200" : "text-saffron-700"}
+              />
+              {!collapsed && <span>{t("nav.new")}</span>}
+            </Link>
+          </nav>
+        </div>
 
         <div className="mt-auto px-2.5 pb-3">
           {!collapsed && (

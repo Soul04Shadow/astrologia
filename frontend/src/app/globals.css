@@ -9,12 +9,14 @@
   --color-saffron-600: #ea580c;
   --color-saffron-700: #c2410c;
   --color-saffron-800: #9a3412;
+  --color-saffron-900: #781d22;
   --color-cream: #f7f1e1;
   --color-panel: #fffcf2;
   --color-sidebarbg: #f1e8d2;
   --color-goldline: #e0cb96;
   --color-gold: #c9a23f;
   --color-ink: #292524;
+  --font-serif: var(--font-cinzel), Georgia, serif;
 }
 
 html,

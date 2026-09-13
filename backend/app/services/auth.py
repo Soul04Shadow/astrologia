@@ -107,7 +107,7 @@ def get_current_user(
 ) -> User:
     s = get_settings()
 
-    if not s.supabase_url:
+    if not s.supabase_url or s.disable_auth:
         user = db.get(User, "local-admin")
         if not user:
             user = User(id="local-admin", email="local@localhost", name="Local Admin")

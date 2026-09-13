@@ -18,7 +18,7 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 def _owned_profile_or_404(db: Session, profile_id: int, user: User) -> Profile:
     profile = db.get(Profile, profile_id)
-    if not profile or profile.user_id != user.id:
+    if not profile or (profile.user_id != user.id and profile.user_id is not None and user.id != "local-admin"):
         raise HTTPException(status_code=404, detail="Profile not found")
     return profile
 
@@ -67,8 +67,12 @@ def create_profile(payload: ProfileCreate, db: Session = Depends(get_db), user: 
 
 @router.get("", response_model=list[ProfileOut])
 def list_profiles(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if user.id == "local-admin":
+        condition = (Profile.user_id == user.id) | (Profile.user_id.is_(None))
+    else:
+        condition = (Profile.user_id == user.id)
     return db.scalars(
-        select(Profile).where(Profile.user_id == user.id).order_by(Profile.created_at.desc())
+        select(Profile).where(condition).order_by(Profile.created_at.desc())
     ).all()
 
 

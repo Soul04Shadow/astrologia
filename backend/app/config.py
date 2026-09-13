@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = ""
     allowed_emails: str = ""
     admin_emails: str = ""
+    disable_auth: bool = False
 
     llm_provider: str = "zen"
     cliproxy_base_url: str = "http://127.0.0.1:8317/v1"
