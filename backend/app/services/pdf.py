@@ -58,6 +58,19 @@ def _clean_place_name(place: str | None) -> str:
     return ", ".join(filtered)
 
 
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+_INVOCATION_FILE = _STATIC_DIR / "sacred_invocation.png"
+
+
+def _get_sacred_invocation_b64() -> str:
+    if _INVOCATION_FILE.exists():
+        try:
+            return base64.b64encode(_INVOCATION_FILE.read_bytes()).decode("ascii")
+        except Exception:
+            return ""
+    return ""
+
+
 def render_report_html(
     chart: dict,
     profile_name: str,
@@ -91,6 +104,7 @@ def render_report_html(
         lon_str=lon_str,
         place_name=clean_place,
         is_preview=is_preview,
+        sacred_invocation_b64=_get_sacred_invocation_b64(),
         lagna=chart.get("lagna", {}),
         moon=chart.get("moon_rashi", {}),
         d1_png=f"data:image/png;base64,{d1_b64}",

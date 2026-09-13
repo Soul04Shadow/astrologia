@@ -232,12 +232,12 @@ def compute_shadbala(planets: dict, birth_hour_local: float = 12.0, is_shukla_pa
         required_rupas = MIN_RUPAS_REQUIRED.get(planet, 6.0)
         ratio = round(total_rupas / required_rupas, 2)
 
-        if ratio >= 1.15:
-            status = "Strong (High Capacity)"
-        elif ratio >= 0.95:
-            status = "Moderate (Balanced)"
+        if ratio >= 1.0:
+            status = "Poorna Bala (Strong)"
+        elif ratio >= 0.85:
+            status = "Madhyama Bala (Moderate)"
         else:
-            status = "Weak / Afflicted (Requires Support)"
+            status = "Alpa Bala (Deficient)"
 
         results[planet] = {
             "planet": planet,

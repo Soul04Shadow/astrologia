@@ -254,9 +254,9 @@ def test_full_shadbala_integration_and_status():
         assert data["strength_ratio"] == round(data["total_rupas"] / data["required_rupas"], 2)
 
         # Status text validation
-        if data["strength_ratio"] >= 1.15:
-            assert data["status"] == "Strong (High Capacity)"
-        elif data["strength_ratio"] >= 0.95:
-            assert data["status"] == "Moderate (Balanced)"
+        if data["strength_ratio"] >= 1.0:
+            assert data["status"] == "Poorna Bala (Strong)"
+        elif data["strength_ratio"] >= 0.85:
+            assert data["status"] == "Madhyama Bala (Moderate)"
         else:
-            assert data["status"] == "Weak / Afflicted (Requires Support)"
+            assert data["status"] == "Alpa Bala (Deficient)"
