@@ -15,7 +15,19 @@ def health():
 
 @router.get("/providers")
 def providers():
-    return {"providers": available_providers()}
+    import json
+    from app.db import SessionLocal, SystemSetting
+
+    all_providers = available_providers()
+    try:
+        with SessionLocal() as db:
+            setting = db.get(SystemSetting, "disabled_providers")
+            if setting and setting.value:
+                disabled = json.loads(setting.value)
+                return {"providers": [p for p in all_providers if p["id"] not in disabled]}
+    except Exception:
+        pass
+    return {"providers": all_providers}
 
 
 @router.get("/geocode")

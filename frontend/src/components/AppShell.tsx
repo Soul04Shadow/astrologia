@@ -15,6 +15,7 @@ import {
   Pencil,
   PlusCircle,
   ScrollText,
+  ShieldCheck,
   Sun,
   UserRound,
   Users,
@@ -22,6 +23,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth, authEnabled } from "@/lib/auth";
+import { api, UserProfile } from "@/lib/api";
+import { AppLoadingScreen } from "@/components/Skeletons";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 interface ProviderInfo {
@@ -46,7 +49,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProfile, setActiveProfile] = useState<ActiveProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!authEnabled || session) {
+      api.getMe().then(setUserProfile).catch(() => {});
+    } else {
+      setUserProfile(null);
+    }
+  }, [session]);
 
   // Sync active profile from pathname, localStorage, or custom events
   useEffect(() => {
@@ -137,6 +149,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isSubpage = pathname !== "/" && pathname !== "/login";
   let pageTitle = "";
   if (pathname === "/") pageTitle = locale === "hi" ? "जातक पत्रिकाएँ" : "Horoscopes";
+  else if (pathname === "/admin") pageTitle = locale === "hi" ? "प्रशासक नियंत्रण" : "Admin Dashboard";
   else if (pathname === "/profiles/new") pageTitle = locale === "hi" ? "नई कुंडली" : "New Kundli";
   else if (pathname.includes("/edit")) pageTitle = locale === "hi" ? "संशोधन" : "Edit Profile";
   else if (pathname.startsWith("/chat/")) pageTitle = locale === "hi" ? "दैवज्ञ परामर्श" : "Consultation";
@@ -144,13 +157,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (authEnabled && authLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-4 text-center">
-        <div className="flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-saffron-600 text-3xl font-bold text-white shadow-md">
-          ॐ
-        </div>
-        <p className="mt-4 text-sm font-semibold tracking-wide text-saffron-800">
-          {locale === "hi" ? "कृपया प्रतीक्षा करें..." : "Loading..."}
-        </p>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <AppLoadingScreen
+          message={
+            locale === "hi"
+              ? "प्रामाणिक ग्रह गणना लोड हो रही है..."
+              : "Authenticating celestial coordinates..."
+          }
+        />
       </div>
     );
   }
@@ -213,7 +227,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 : t("app.name")
             }
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-saffron-600 via-saffron-700 to-saffron-900 text-amber-100 shadow-2xs border border-gold/40 group-hover:border-gold group-hover:scale-105 transition-transform">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-saffron-800 text-amber-100 shadow-2xs border border-goldline/70 group-hover:border-gold group-hover:scale-105 transition-transform">
               <svg
                 viewBox="0 0 24 24"
                 className="h-5 w-5 fill-none stroke-current"
@@ -397,6 +411,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               />
               {!collapsed && <span>{t("nav.new")}</span>}
             </Link>
+
+            {/* Admin Panel (Admins Only) */}
+            {userProfile?.is_admin && (
+              <Link
+                href="/admin"
+                title={locale === "hi" ? "प्रशासक नियंत्रण" : "Admin Panel"}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                  pathname === "/admin"
+                    ? "bg-saffron-600 text-white font-bold shadow-2xs"
+                    : "text-stone-700 hover:bg-saffron-100 hover:text-saffron-900"
+                } ${collapsed ? "justify-center px-0" : ""}`}
+              >
+                <ShieldCheck
+                  size={17}
+                  strokeWidth={2.2}
+                  className={pathname === "/admin" ? "text-amber-200" : "text-saffron-700"}
+                />
+                {!collapsed && <span>{locale === "hi" ? "प्रशासक नियंत्रण" : "Admin Panel"}</span>}
+              </Link>
+            )}
           </nav>
         </div>
 
@@ -497,6 +531,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     >
                       {locale === "hi" ? "साइन आउट" : "Sign out"}
                     </button>
+                  )}
+                  {userProfile?.is_admin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="mt-2 flex items-center justify-center gap-1.5 w-full rounded-lg bg-saffron-700 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-saffron-800 transition"
+                    >
+                      <ShieldCheck size={14} className="text-amber-200" />
+                      <span>{locale === "hi" ? "प्रशासक नियंत्रण" : "Admin Dashboard"}</span>
+                    </Link>
                   )}
                   <p className="mt-0.5 text-xs text-stone-500">{t("menu.mode")}</p>
                   <div className="my-3 border-t border-goldline" />

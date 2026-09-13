@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { api, type Profile } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import ProfileForm from "@/components/ProfileForm";
+import { EditProfileSkeleton } from "@/components/Skeletons";
 
 export default function EditProfilePage() {
   const params = useParams<{ id: string }>();
@@ -28,14 +29,7 @@ export default function EditProfilePage() {
   }, [id]);
 
   if (loading) {
-    return (
-      <div className="mx-auto max-w-xl py-12 text-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-saffron-600 border-t-transparent"></div>
-        <p className="mt-3 text-xs font-semibold text-stone-500">
-          {locale === "hi" ? "जातक विवरण लोड हो रहा है..." : "Loading profile details..."}
-        </p>
-      </div>
-    );
+    return <EditProfileSkeleton />;
   }
 
   if (error || !profile) {

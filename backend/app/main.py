@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.db import _migrate_existing_messages, init_db
-from app.routers import auth, charts, chat, misc, models, profiles, sessions, translate
+from app.routers import admin, auth, charts, chat, misc, models, profiles, sessions, translate
 
 
 @asynccontextmanager
@@ -34,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 app.include_router(misc.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
 app.include_router(charts.router, prefix="/api")

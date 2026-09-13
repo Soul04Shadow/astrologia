@@ -344,4 +344,120 @@ export const api = {
     memoryCache.set(key, data, 300);
     return data;
   },
+  getMe: () => apiFetch(`${BASE}/api/auth/me`).then((r) => jsonOrThrow<UserProfile>(r)),
+  getAdminOverview: () => apiFetch(`${BASE}/api/admin/overview`).then((r) => jsonOrThrow<AdminOverview>(r)),
+  listAllowedEmails: () => apiFetch(`${BASE}/api/admin/allowlist`).then((r) => jsonOrThrow<AllowedEmailItem[]>(r)),
+  addAllowedEmail: (email: string, notes?: string) =>
+    apiFetch(`${BASE}/api/admin/allowlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, notes }),
+    }).then((r) => jsonOrThrow<AllowedEmailItem>(r)),
+  removeAllowedEmail: (email: string) =>
+    apiFetch(`${BASE}/api/admin/allowlist/${encodeURIComponent(email)}`, {
+      method: "DELETE",
+    }).then((r) => jsonOrThrow<{ deleted: boolean }>(r)),
+  listAdminUsers: () => apiFetch(`${BASE}/api/admin/users`).then((r) => jsonOrThrow<AdminUserItem[]>(r)),
+  getAdminSettings: () => apiFetch(`${BASE}/api/admin/settings`).then((r) => jsonOrThrow<AdminSettingsData>(r)),
+  updateAdminSettings: (payload: {
+    default_provider?: string;
+    default_models?: Record<string, string>;
+    disabled_providers?: string[];
+  }) =>
+    apiFetch(`${BASE}/api/admin/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((r) => jsonOrThrow<{ saved: boolean }>(r)),
+  getAdminPrompt: () => apiFetch(`${BASE}/api/admin/prompt`).then((r) => jsonOrThrow<AdminPromptData>(r)),
+  updateAdminPrompt: (payload: { persona?: string; guidelines?: string; style?: string }) =>
+    apiFetch(`${BASE}/api/admin/prompt`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((r) => jsonOrThrow<{ saved: boolean }>(r)),
+  resetAdminPrompt: () =>
+    apiFetch(`${BASE}/api/admin/prompt/reset`, {
+      method: "POST",
+    }).then((r) => jsonOrThrow<{ reset: boolean }>(r)),
+  pingProvider: (provider: string) =>
+    apiFetch(`${BASE}/api/admin/ping-provider`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider }),
+    }).then((r) =>
+      jsonOrThrow<{ ok: boolean; latency_ms: number; status_code?: number; error?: string }>(r),
+    ),
 };
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string;
+  is_admin: boolean;
+}
+
+export interface AdminOverview {
+  metrics: {
+    total_users: number;
+    total_allowed_testers: number;
+    total_profiles: number;
+    total_sessions: number;
+    total_messages: number;
+  };
+  diagnostics: {
+    database_type: string;
+    swisseph_version: string;
+    default_provider: string;
+    server_time: string;
+  };
+}
+
+export interface AllowedEmailItem {
+  id: number;
+  email: string;
+  notes: string | null;
+  added_by: string | null;
+  created_at: string | null;
+}
+
+export interface AdminUserItem {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string;
+  is_admin: boolean;
+  created_at: string | null;
+  last_active: string | null;
+  profiles_count: number;
+  sessions_count: number;
+  messages_count: number;
+}
+
+export interface AdminSettingsData {
+  default_provider: string;
+  disabled_providers: string[];
+  default_models: Record<string, string>;
+  providers: {
+    id: string;
+    name: string;
+    ready: boolean;
+    models: string[];
+    base_url: string;
+    default_model: string;
+    enabled: boolean;
+  }[];
+}
+
+export interface AdminPromptData {
+  persona: string;
+  guidelines: string;
+  style: string;
+  is_overridden: boolean;
+  defaults: {
+    persona: string;
+    guidelines: string;
+    style: string;
+  };
+}

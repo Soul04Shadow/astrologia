@@ -73,6 +73,29 @@ class ChatMessage(Base):
     session: Mapped[ChatSession | None] = relationship(back_populates="messages")
 
 
+class AllowedEmail(Base):
+    __tablename__ = "allowed_emails"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    added_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    updated_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
 _settings = get_settings()
 
 _connect_args: dict = {}
@@ -144,6 +167,19 @@ def init_db() -> None:
         pass
     try:
         _migrate_existing_messages()
+    except Exception:
+        pass
+
+    # Seed allowed_emails from config if table is empty
+    try:
+        with SessionLocal() as db:
+            from sqlalchemy import select
+
+            count = len(db.scalars(select(AllowedEmail)).all())
+            if count == 0 and _settings.allowed_emails:
+                for em in [e.strip().lower() for e in _settings.allowed_emails.split(",") if e.strip()]:
+                    db.add(AllowedEmail(email=em, notes="Seeded from environment", added_by="system"))
+                db.commit()
     except Exception:
         pass
 

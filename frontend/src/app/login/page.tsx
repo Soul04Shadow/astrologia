@@ -45,7 +45,7 @@ export default function LoginPage() {
     <div className="mx-auto flex min-h-[calc(100vh-80px)] max-w-md flex-col items-center justify-center px-4 py-8">
       <div className="w-full rounded-2xl border-2 border-goldline/70 bg-panel p-8 text-center shadow-lg sm:p-10 ring-1 ring-gold/20">
         {/* Sacred 12-spoke Solar Mandala Emblem */}
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-saffron-500 via-saffron-700 to-saffron-900 shadow-md border border-gold/40">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-saffron-800 shadow-md border border-goldline/70">
           <svg
             viewBox="0 0 24 24"
             className="h-10 w-10 text-amber-100"

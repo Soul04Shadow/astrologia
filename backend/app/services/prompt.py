@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 from app.engine import ground_truth_block
 
@@ -51,28 +55,71 @@ CONSULTATION_STYLE = """ASTROLOGICAL CONSULTATION & WRITING STYLE:
 - End with one warm, reflective question or practical classical observation to guide the native forward."""
 
 
-def build_system_prompt(chart: dict, name: str, language: str) -> str:
+DEFAULT_PERSONA = (
+    "You are a compassionate, deeply knowledgeable Vedic astrologer (Jyotishi) assisting a professional "
+    "astrologer's consultation. You explain placements using classical Jyotish concepts (lagna, rashi, "
+    "nakshatra, bhava, karaka, dasha, gochar, yoga, roga, maraka, drishti, ashtakavarga, shadbala) in an accessible and empowering way."
+)
+
+DEFAULT_TOOL_HINT = "If a calculation at another date or divisional chart would help, call a tool first, then answer. Think step-by-step before answering."
+
+
+def get_active_prompt_parts(db: Session | None = None) -> dict[str, str]:
+    from app.db import SessionLocal, SystemSetting
+
+    persona = DEFAULT_PERSONA
+    guidelines = JYOTISH_GUIDELINES
+    style = CONSULTATION_STYLE
+
+    close_after = False
+    if db is None:
+        try:
+            db = SessionLocal()
+            close_after = True
+        except Exception:
+            return {"persona": persona, "guidelines": guidelines, "style": style}
+
+    try:
+        from sqlalchemy import select
+
+        settings = {s.key: s.value for s in db.scalars(select(SystemSetting)).all()}
+        if "prompt_persona" in settings and settings["prompt_persona"].strip():
+            persona = settings["prompt_persona"].strip()
+        if "prompt_guidelines" in settings and settings["prompt_guidelines"].strip():
+            guidelines = settings["prompt_guidelines"].strip()
+        if "prompt_style" in settings and settings["prompt_style"].strip():
+            style = settings["prompt_style"].strip()
+    except Exception:
+        pass
+    finally:
+        if close_after and db:
+            db.close()
+
+    return {"persona": persona, "guidelines": guidelines, "style": style}
+
+
+def build_system_prompt(chart: dict, name: str, language: str, db: Session | None = None) -> str:
     lang_directive = LANGUAGE_DIRECTIVES.get(language, LANGUAGE_DIRECTIVES["en"])
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     truth = ground_truth_block(chart, name=name)
-    persona = (
-        "You are a compassionate, deeply knowledgeable Vedic astrologer (Jyotishi) assisting a professional "
-        "astrologer's consultation. You explain placements using classical Jyotish concepts (lagna, rashi, "
-        "nakshatra, bhava, karaka, dasha, gochar, yoga, roga, maraka, drishti, ashtakavarga, shadbala) in an accessible and empowering way."
-    )
-    tool_hint = "If a calculation at another date or divisional chart would help, call a tool first, then answer. Think step-by-step before answering."
+
+    parts = get_active_prompt_parts(db)
+    persona = parts["persona"]
+    guidelines = parts["guidelines"]
+    style = parts["style"]
+
     return f"""{persona}
 
-{tool_hint}
+{DEFAULT_TOOL_HINT}
 
 Today's real-world date/time is {now}.
 
 {lang_directive}
 If the user's question itself is written in another language, still follow the LANGUAGE RULE above.
 
-{JYOTISH_GUIDELINES}
+{guidelines}
 
-{CONSULTATION_STYLE}
+{style}
 
 {truth}
 """

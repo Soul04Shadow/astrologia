@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import VargaChart, { type PlacementMark } from "@/components/VargaChart";
 import { api, type Chart, type Profile } from "@/lib/api";
+import { ChartPageSkeleton } from "@/components/Skeletons";
 import { getSupabase } from "@/lib/auth";
 import { localizedSignNames, SIGN_CODES_EN } from "@/lib/dictionaries";
 import { useI18n } from "@/lib/i18n";
@@ -267,7 +268,7 @@ export default function ChartPage() {
 
   if (error)
     return <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>;
-  if (!chart || !profile) return <p className="text-sm text-stone-600">{t("common.calculating")}</p>;
+  if (!chart || !profile) return <ChartPageSkeleton />;
 
   const current = chart.dasha.current;
   const bd = chart.birth_details;

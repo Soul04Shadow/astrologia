@@ -108,10 +108,15 @@ def get_current_user(
     s = get_settings()
 
     if not s.supabase_url or s.disable_auth:
+        admin_email = s.admin_emails.split(",")[0].strip() if s.admin_emails else "aayubansaldps@gmail.com"
         user = db.get(User, "local-admin")
         if not user:
-            user = User(id="local-admin", email="local@localhost", name="Local Admin")
+            user = User(id="local-admin", email=admin_email, name="Aayush Bansal")
             db.add(user)
+            db.commit()
+        elif user.email != admin_email or user.name != "Aayush Bansal":
+            user.email = admin_email
+            user.name = "Aayush Bansal"
             db.commit()
         return user
 
@@ -123,18 +128,43 @@ def get_current_user(
     info = verify_supabase_token(raw_token)
     email = info["email"]
 
-    allowed = [e.strip().lower() for e in s.allowed_emails.split(",") if e.strip()]
-    if allowed and email.lower() not in allowed:
-        logger.warning("get_current_user: Email '%s' not in ALLOWED_EMAILS (%s)", email, allowed)
-        raise HTTPException(status_code=403, detail="Email not in beta allowlist")
+    admins = [e.strip().lower() for e in s.admin_emails.split(",") if e.strip()]
+    is_admin = bool(email and email.lower() in admins)
+
+    if not is_admin:
+        from sqlalchemy import select
+        from app.db import AllowedEmail
+
+        db_allowed = [em.lower() for em in db.scalars(select(AllowedEmail.email)).all()]
+        env_allowed = [e.strip().lower() for e in s.allowed_emails.split(",") if e.strip()]
+        all_allowed = set(db_allowed) | set(env_allowed)
+
+        if all_allowed and email.lower() not in all_allowed:
+            logger.warning("get_current_user: Email '%s' not in allowlist", email)
+            raise HTTPException(status_code=403, detail="Email not in beta allowlist")
 
     user = _upsert_user(db, info)
 
-    admins = [e.strip().lower() for e in s.admin_emails.split(",") if e.strip()]
-    if email and email.lower() in admins:
+    if is_admin:
         from sqlalchemy import text
 
         db.execute(text("UPDATE profiles SET user_id = :uid WHERE user_id IS NULL"), {"uid": user.id})
         db.commit()
 
+    return user
+
+
+def is_admin_user(user: User | None) -> bool:
+    if not user:
+        return False
+    if user.id == "local-admin":
+        return True
+    s = get_settings()
+    admins = [e.strip().lower() for e in s.admin_emails.split(",") if e.strip()]
+    return bool(user.email and user.email.lower() in admins)
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not is_admin_user(user):
+        raise HTTPException(status_code=403, detail="Forbidden: Admin privileges required")
     return user

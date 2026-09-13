@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { api, type Profile } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { useAuth, authEnabled } from "@/lib/auth";
+import { DossierCardSkeleton } from "@/components/Skeletons";
 
 export default function DashboardPage() {
   const { t, locale } = useI18n();
@@ -101,7 +102,7 @@ export default function DashboardPage() {
 
         <Link
           href="/profiles/new"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-saffron-600 via-saffron-700 to-saffron-800 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:from-saffron-700 hover:to-saffron-900 hover:shadow-md active:scale-95"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-saffron-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-saffron-800 hover:shadow-md active:scale-95"
         >
           <PlusCircle size={18} className="text-amber-200" />
           <span>{t("dash.add")}</span>
@@ -135,16 +136,7 @@ export default function DashboardPage() {
       )}
 
       {/* Loading & Error States */}
-      {loading && (
-        <div className="py-12 text-center">
-          <div className="inline-flex h-12 w-12 animate-pulse items-center justify-center rounded-2xl bg-saffron-100 text-2xl font-bold text-saffron-700">
-            ॐ
-          </div>
-          <p className="mt-3 text-sm font-semibold text-stone-600">
-            {t("dash.loading")}
-          </p>
-        </div>
-      )}
+      {loading && <DossierCardSkeleton count={6} />}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-2xs">
@@ -208,7 +200,7 @@ export default function DashboardPage() {
                 {/* Header Row: Avatar, Name & Meta, and Actions */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-saffron-600 via-saffron-700 to-saffron-900 font-serif text-lg font-bold text-amber-100 shadow-2xs border border-gold/30">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-saffron-800 font-serif text-lg font-bold text-amber-100 shadow-2xs border border-goldline/60">
                       {p.name.charAt(0).toUpperCase()}
                     </div>
 
@@ -298,7 +290,7 @@ export default function DashboardPage() {
                 <Link
                   href={`/chat/${p.id}`}
                   onClick={() => selectProfile(p)}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-saffron-600 via-saffron-700 to-saffron-800 py-2 px-2 text-xs font-bold text-white shadow-2xs transition hover:from-saffron-700 hover:to-saffron-900"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-saffron-700 py-2 px-2 text-xs font-bold text-white shadow-2xs transition hover:bg-saffron-800"
                 >
                   <MessageSquareQuote size={14} className="text-amber-200 shrink-0" />
                   <span className="truncate">{t("dash.start_consult")}</span>

@@ -62,7 +62,7 @@ async def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Q
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Chart calculation failed: {e}")
 
-    system_prompt = build_system_prompt(chart, name=profile.name, language=payload.language)
+    system_prompt = build_system_prompt(chart, name=profile.name, language=payload.language, db=db)
     history = _history_messages(db, profile_id, session_id)
 
     # auto-title from first message (40 chars) if default title
