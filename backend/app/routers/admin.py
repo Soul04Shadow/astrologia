@@ -51,8 +51,94 @@ class PingProviderRequest(BaseModel):
     provider: str
 
 
+def _merge_local_admin(db: Session):
+    real_admin = db.scalars(
+        select(User).where(User.id != "local-admin", User.email == "aayubansaldps@gmail.com")
+    ).first()
+    if real_admin:
+        from sqlalchemy import text
+
+        db.execute(text("UPDATE profiles SET user_id = :real_id WHERE user_id = 'local-admin'"), {"real_id": real_admin.id})
+        db.execute(text("DELETE FROM users WHERE id = 'local-admin'"))
+        db.commit()
+
+
+def _get_revoked_emails(db: Session) -> set[str]:
+    setting = db.scalar(select(SystemSetting).where(SystemSetting.key == "revoked_emails"))
+    if not setting or not setting.value:
+        return set()
+    try:
+        return set(json.loads(setting.value))
+    except Exception:
+        return set()
+
+
+def _add_revoked_email(db: Session, email: str):
+    revoked = _get_revoked_emails(db)
+    revoked.add(email.lower())
+    setting = db.scalar(select(SystemSetting).where(SystemSetting.key == "revoked_emails"))
+    if not setting:
+        db.add(SystemSetting(key="revoked_emails", value=json.dumps(list(revoked))))
+    else:
+        setting.value = json.dumps(list(revoked))
+    db.commit()
+
+
+def _unrevoke_email(db: Session, email: str):
+    revoked = _get_revoked_emails(db)
+    if email.lower() in revoked:
+        revoked.remove(email.lower())
+        setting = db.scalar(select(SystemSetting).where(SystemSetting.key == "revoked_emails"))
+        if setting:
+            setting.value = json.dumps(list(revoked))
+            db.commit()
+
+
+def _sync_allowed_emails(db: Session):
+    s = get_settings()
+    revoked = _get_revoked_emails(db)
+
+    # 1. Sync from ALLOWED_EMAILS environment variable
+    if s.allowed_emails:
+        env_emails = [e.strip().lower() for e in s.allowed_emails.split(",") if e.strip()]
+        existing = set(em.lower() for em in db.scalars(select(AllowedEmail.email)).all())
+        added_any = False
+        for em in env_emails:
+            if em not in existing and em not in revoked:
+                db.add(AllowedEmail(email=em, notes="Configured in environment", added_by="system"))
+                existing.add(em)
+                added_any = True
+        if added_any:
+            db.commit()
+
+    # 2. Sync all registered users who aren't admins and haven't been revoked
+    admins = [e.strip().lower() for e in s.admin_emails.split(",") if e.strip()]
+    if "aayubansaldps@gmail.com" not in admins:
+        admins.append("aayubansaldps@gmail.com")
+
+    existing = set(em.lower() for em in db.scalars(select(AllowedEmail.email)).all())
+    reg_users = db.scalars(select(User)).all()
+    user_added = False
+    for u in reg_users:
+        if u.email and u.email.lower() not in admins and u.email.lower() not in existing and u.email.lower() not in revoked:
+            db.add(
+                AllowedEmail(
+                    email=u.email.lower(),
+                    notes=f"Active User ({u.name or 'Beta Tester'})",
+                    added_by="system",
+                )
+            )
+            existing.add(u.email.lower())
+            user_added = True
+    if user_added:
+        db.commit()
+
+
 @router.get("/overview")
 def get_overview(db: Session = Depends(get_db)):
+    _merge_local_admin(db)
+    _sync_allowed_emails(db)
+
     settings = get_settings()
 
     total_users = db.scalar(select(func.count(User.id))) or 0
@@ -95,6 +181,7 @@ def get_overview(db: Session = Depends(get_db)):
 
 @router.get("/allowlist")
 def list_allowlist(db: Session = Depends(get_db)):
+    _sync_allowed_emails(db)
     items = db.scalars(select(AllowedEmail).order_by(AllowedEmail.created_at.desc())).all()
     return [
         {
@@ -117,6 +204,9 @@ def add_to_allowlist(
     norm_email = payload.email.strip().lower()
     if "@" not in norm_email or len(norm_email) < 3:
         raise HTTPException(status_code=422, detail="Invalid email address")
+
+    _unrevoke_email(db, norm_email)
+
     existing = db.scalar(select(AllowedEmail).where(AllowedEmail.email == norm_email))
     if existing:
         if payload.notes is not None:
@@ -156,6 +246,8 @@ def remove_from_allowlist(email: str, db: Session = Depends(get_db)):
     item = db.scalar(select(AllowedEmail).where(AllowedEmail.email == norm_email))
     if not item:
         raise HTTPException(status_code=404, detail="Email not found in allowlist")
+
+    _add_revoked_email(db, norm_email)
     db.delete(item)
     db.commit()
     return {"deleted": True, "email": norm_email}
@@ -163,6 +255,7 @@ def remove_from_allowlist(email: str, db: Session = Depends(get_db)):
 
 @router.get("/users")
 def list_users(db: Session = Depends(get_db)):
+    _merge_local_admin(db)
     users = db.scalars(select(User).order_by(User.created_at.desc())).all()
     results = []
 

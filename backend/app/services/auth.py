@@ -134,12 +134,22 @@ def get_current_user(
     is_admin = bool(email and email.lower() in admins)
 
     if not is_admin:
+        import json
         from sqlalchemy import select
-        from app.db import AllowedEmail
+        from app.db import AllowedEmail, SystemSetting
 
         db_allowed = [em.lower() for em in db.scalars(select(AllowedEmail.email)).all()]
         env_allowed = [e.strip().lower() for e in s.allowed_emails.split(",") if e.strip()]
-        all_allowed = set(db_allowed) | set(env_allowed)
+
+        revoked_setting = db.scalar(select(SystemSetting).where(SystemSetting.key == "revoked_emails"))
+        revoked = set()
+        if revoked_setting and revoked_setting.value:
+            try:
+                revoked = set(json.loads(revoked_setting.value))
+            except Exception:
+                pass
+
+        all_allowed = (set(db_allowed) | set(env_allowed)) - revoked
 
         if all_allowed and email.lower() not in all_allowed:
             logger.warning("get_current_user: Email '%s' not in allowlist", email)
@@ -150,7 +160,8 @@ def get_current_user(
     if is_admin:
         from sqlalchemy import text
 
-        db.execute(text("UPDATE profiles SET user_id = :uid WHERE user_id IS NULL"), {"uid": user.id})
+        db.execute(text("UPDATE profiles SET user_id = :uid WHERE user_id IS NULL OR user_id = 'local-admin'"), {"uid": user.id})
+        db.execute(text("DELETE FROM users WHERE id = 'local-admin'"))
         db.commit()
 
     return user
