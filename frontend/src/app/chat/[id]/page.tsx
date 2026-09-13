@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Check, ChevronLeft, Copy, MessageSquareQuote, Pencil, Plus, RotateCw, Sun, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, Copy, MessageSquareQuote, Mic, MicOff, Pencil, Plus, RotateCw, Sun, Trash2, UserRound } from "lucide-react";
 import { api, type ChatMessageItem, type ChatSession, type ModelInfo, type Profile } from "@/lib/api";
 import { getSupabase } from "@/lib/auth";
 
@@ -85,6 +85,9 @@ export default function ChatPage() {
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const activeStreamReaderRef = useRef<AbortController | null>(null);
   const sessionMessagesCache = useRef<Record<string, ChatMessageItem[]>>({});
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   // cleanup in-flight stream reader on unmount
   useEffect(() => {
@@ -344,6 +347,79 @@ export default function ChatPage() {
     ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
   }
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRec =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      setSpeechSupported(Boolean(SpeechRec));
+    }
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
+  function toggleSpeech() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+    const SpeechRec =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert(
+        locale === "hi"
+          ? "आपके ब्राउज़र में स्पीच-टू-टेक्स्ट समर्थित नहीं है। कृपया Chrome, Edge या Safari का उपयोग करें।"
+          : "Speech-to-text is not supported in this browser. Please try Chrome, Edge, or Safari."
+      );
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = language === "hi" || locale === "hi" ? "hi-IN" : "en-IN";
+
+      let baseInput = input;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        baseInput = input;
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        const combined = baseInput ? `${baseInput.trim()} ${transcript.trim()}` : transcript.trim();
+        setInput(combined);
+        if (taRef.current) {
+          taRef.current.style.height = "auto";
+          taRef.current.style.height = Math.min(taRef.current.scrollHeight, 140) + "px";
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      setIsListening(false);
+    }
+  }
+
   async function handleNewChat() {
     activeStreamReaderRef.current?.abort();
     setStreamText("");
@@ -422,6 +498,11 @@ export default function ChatPage() {
     e?.preventDefault();
     const text = (overrideText ?? input).trim();
     if (!text || streaming) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    }
 
     let sid = activeSessionId;
     if (!sid) {
@@ -804,6 +885,20 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
+        {isListening && (
+          <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-1.5 text-xs text-red-700 font-semibold mb-2 animate-pulse">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+            </span>
+            <span>
+              {language === "hi" || locale === "hi"
+                ? "सुन रहा हूँ... बोलिए (रोकने के लिए माइक पर क्लिक करें)"
+                : "Listening... Speak now in Hindi or English (click mic to stop)"}
+            </span>
+          </div>
+        )}
+
         <form onSubmit={send} className="flex items-end gap-2 border-t border-goldline pt-3 w-full max-w-full">
           <textarea
             ref={taRef}
@@ -821,9 +916,33 @@ export default function ChatPage() {
             }}
             placeholder={t("chat.placeholder")}
             disabled={streaming}
-            className="max-h-[140px] min-w-0 flex-1 resize-none rounded-xl border border-goldline bg-panel px-3 sm:px-4 py-3 text-sm outline-none focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100 disabled:opacity-60"
+            className="max-h-[140px] min-w-0 flex-1 resize-none rounded-xl border border-goldline bg-panel px-3 sm:px-4 py-3 text-sm outline-none focus:border-saffron-700 focus:ring-2 focus:ring-saffron-100 disabled:opacity-60"
           />
-          <button disabled={streaming || !input.trim()} className="shrink-0 flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-600 px-4 sm:px-5 text-sm font-bold text-white hover:bg-saffron-700 disabled:opacity-50 transition shadow-2xs">
+
+          <button
+            type="button"
+            onClick={toggleSpeech}
+            disabled={streaming}
+            title={
+              isListening
+                ? (locale === "hi" ? "आवाज़ रिकॉर्डिंग बंद करें" : "Stop listening")
+                : (locale === "hi" ? "बोलकर लिखें (माइक्रोफ़ोन)" : "Speech to text (Voice input)")
+            }
+            aria-label="Voice input"
+            className={`shrink-0 flex h-[46px] w-[46px] items-center justify-center rounded-xl border transition shadow-2xs ${
+              isListening
+                ? "border-red-600 bg-red-600 text-white animate-pulse"
+                : "border-goldline bg-panel text-stone-600 hover:text-saffron-800 hover:border-saffron-700 hover:bg-cream"
+            }`}
+          >
+            {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+          </button>
+
+          <button
+            type="submit"
+            disabled={streaming || !input.trim()}
+            className="shrink-0 flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-700 px-4 sm:px-5 text-sm font-bold text-white hover:bg-saffron-800 disabled:opacity-50 transition shadow-2xs active:scale-95"
+          >
             {t("chat.send")}
           </button>
         </form>
