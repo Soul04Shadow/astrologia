@@ -48,7 +48,7 @@ def report_html(profile_id: int, db: Session = Depends(get_db), user: User = Dep
     profile = _owned_profile_or_404(db, profile_id, user)
     try:
         chart = _chart_for_profile(profile)
-        html_str = render_report_html(chart, profile.name, place_name=profile.place_name)
+        html_str = render_report_html(chart, profile.name, place_name=profile.place_name, is_preview=True)
     except HTTPException:
         raise
     except Exception as e:

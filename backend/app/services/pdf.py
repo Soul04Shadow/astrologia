@@ -46,7 +46,24 @@ def _find_headless_browser() -> str | None:
     return None
 
 
-def render_report_html(chart: dict, profile_name: str, place_name: str | None = None) -> str:
+def _clean_place_name(place: str | None) -> str:
+    if not place:
+        return "Location Not Specified"
+    parts = [p.strip() for p in place.split(",") if p.strip()]
+    if len(parts) <= 3:
+        return place
+    filtered = [p for p in parts if not p.isdigit() and len(p) > 1]
+    if len(filtered) >= 4:
+        return f"{filtered[0]}, {filtered[-2]}, {filtered[-1]}"
+    return ", ".join(filtered)
+
+
+def render_report_html(
+    chart: dict,
+    profile_name: str,
+    place_name: str | None = None,
+    is_preview: bool = False,
+) -> str:
     d1_png = render_north_indian_png(chart, varga="D1", width_px=800)
     d1_b64 = base64.b64encode(d1_png).decode()
 
@@ -64,6 +81,7 @@ def render_report_html(chart: dict, profile_name: str, place_name: str | None = 
     lon = birth.get("longitude", 0.0)
     lat_str = f"{abs(lat):.2f}° {'N' if lat >= 0 else 'S'}"
     lon_str = f"{abs(lon):.2f}° {'E' if lon >= 0 else 'W'}"
+    clean_place = _clean_place_name(place_name)
 
     return template.render(
         name=profile_name,
@@ -71,7 +89,8 @@ def render_report_html(chart: dict, profile_name: str, place_name: str | None = 
         birth=birth,
         lat_str=lat_str,
         lon_str=lon_str,
-        place_name=place_name,
+        place_name=clean_place,
+        is_preview=is_preview,
         lagna=chart.get("lagna", {}),
         moon=chart.get("moon_rashi", {}),
         d1_png=f"data:image/png;base64,{d1_b64}",
@@ -84,6 +103,7 @@ def render_report_html(chart: dict, profile_name: str, place_name: str | None = 
         yogas=chart.get("yogas", []),
         panchang=chart.get("panchang_today"),
         ashtakavarga=chart.get("ashtakavarga"),
+        shadbala=chart.get("shadbala", {}),
         d9=chart.get("navamsa_d9", {}),
     )
 
