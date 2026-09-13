@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_jwt_secret: str = ""
     allowed_emails: str = ""
-    admin_emails: str = "aayubansaldps@gmail.com"
+    admin_emails: str = ""
     disable_auth: bool = False
 
     llm_provider: str = "zen"

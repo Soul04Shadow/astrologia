@@ -52,13 +52,16 @@ class PingProviderRequest(BaseModel):
 
 
 def _merge_local_admin(db: Session):
-    real_admin = db.scalars(
-        select(User).where(User.id != "local-admin", User.email == "aayubansaldps@gmail.com")
+    local_admin = db.get(User, "local-admin")
+    if not local_admin or not local_admin.email:
+        return
+    real_user = db.scalars(
+        select(User).where(User.id != "local-admin", User.email == local_admin.email)
     ).first()
-    if real_admin:
+    if real_user:
         from sqlalchemy import text
 
-        db.execute(text("UPDATE profiles SET user_id = :real_id WHERE user_id = 'local-admin'"), {"real_id": real_admin.id})
+        db.execute(text("UPDATE profiles SET user_id = :real_id WHERE user_id = 'local-admin'"), {"real_id": real_user.id})
         db.execute(text("DELETE FROM users WHERE id = 'local-admin'"))
         db.commit()
 
@@ -113,8 +116,6 @@ def _sync_allowed_emails(db: Session):
 
     # 2. Sync all registered users who aren't admins and haven't been revoked
     admins = [e.strip().lower() for e in s.admin_emails.split(",") if e.strip()]
-    if "aayubansaldps@gmail.com" not in admins:
-        admins.append("aayubansaldps@gmail.com")
 
     existing = set(em.lower() for em in db.scalars(select(AllowedEmail.email)).all())
     reg_users = db.scalars(select(User)).all()

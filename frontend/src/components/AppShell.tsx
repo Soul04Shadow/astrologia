@@ -60,10 +60,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [session, authLoading]);
 
-  const isAdmin = Boolean(
-    userProfile?.is_admin ||
-      (session?.user?.email && session.user.email.toLowerCase() === "aayubansaldps@gmail.com")
-  );
+  const isAdmin = Boolean(userProfile?.is_admin);
 
   // Sync active profile from pathname, localStorage, or custom events
   useEffect(() => {

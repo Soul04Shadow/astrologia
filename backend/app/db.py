@@ -170,16 +170,21 @@ def init_db() -> None:
     except Exception:
         pass
 
-    # Seed allowed_emails from config if table is empty
+    # Seed any missing allowed_emails from config
     try:
         with SessionLocal() as db:
             from sqlalchemy import select
 
-            count = len(db.scalars(select(AllowedEmail)).all())
-            if count == 0 and _settings.allowed_emails:
+            if _settings.allowed_emails:
+                existing = set(em.lower() for em in db.scalars(select(AllowedEmail.email)).all())
+                added_any = False
                 for em in [e.strip().lower() for e in _settings.allowed_emails.split(",") if e.strip()]:
-                    db.add(AllowedEmail(email=em, notes="Seeded from environment", added_by="system"))
-                db.commit()
+                    if em not in existing:
+                        db.add(AllowedEmail(email=em, notes="Configured in environment", added_by="system"))
+                        existing.add(em)
+                        added_any = True
+                if added_any:
+                    db.commit()
     except Exception:
         pass
 

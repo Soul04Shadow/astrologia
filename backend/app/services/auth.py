@@ -108,15 +108,14 @@ def get_current_user(
     s = get_settings()
 
     if not s.supabase_url or s.disable_auth:
-        admin_email = s.admin_emails.split(",")[0].strip() if s.admin_emails else "aayubansaldps@gmail.com"
+        admin_email = s.admin_emails.split(",")[0].strip() if s.admin_emails else "admin@astrologia.internal"
         user = db.get(User, "local-admin")
         if not user:
-            user = User(id="local-admin", email=admin_email, name="Aayush Bansal")
+            user = User(id="local-admin", email=admin_email, name="Administrator")
             db.add(user)
             db.commit()
-        elif user.email != admin_email or user.name != "Aayush Bansal":
+        elif user.email != admin_email:
             user.email = admin_email
-            user.name = "Aayush Bansal"
             db.commit()
         return user
 
@@ -129,8 +128,6 @@ def get_current_user(
     email = info["email"]
 
     admins = [e.strip().lower() for e in s.admin_emails.split(",") if e.strip()]
-    if "aayubansaldps@gmail.com" not in admins:
-        admins.append("aayubansaldps@gmail.com")
     is_admin = bool(email and email.lower() in admins)
 
     if not is_admin:
@@ -174,8 +171,6 @@ def is_admin_user(user: User | None) -> bool:
         return True
     s = get_settings()
     admins = [e.strip().lower() for e in s.admin_emails.split(",") if e.strip()]
-    if "aayubansaldps@gmail.com" not in admins:
-        admins.append("aayubansaldps@gmail.com")
     return bool(user.email and user.email.lower() in admins)
 
 

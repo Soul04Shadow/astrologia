@@ -84,11 +84,7 @@ export default function AdminPage() {
     setTimeout(() => setFeedback(null), 4000);
   }
 
-  // Session-level admin check
-  const isSessionAdmin = Boolean(
-    session?.user?.email && session.user.email.toLowerCase() === "aayubansaldps@gmail.com"
-  );
-  const isAdmin = Boolean(currentUser?.is_admin || isSessionAdmin);
+  const isAdmin = Boolean(currentUser?.is_admin);
 
   // Verify Admin Access with retry/session sync
   useEffect(() => {
@@ -132,7 +128,7 @@ export default function AdminPage() {
     return <AppLoadingScreen message="Verifying administrative credentials..." />;
   }
 
-  if (!authChecked && !isSessionAdmin) {
+  if (!authChecked) {
     return <AppLoadingScreen message="Verifying administrative credentials..." />;
   }
 
