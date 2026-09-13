@@ -4,7 +4,7 @@ import time
 
 import httpx
 import jwt
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -102,6 +102,7 @@ def _upsert_user(db: Session, info: dict) -> User:
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    token: str | None = Query(None, alias="token"),
     db: Session = Depends(get_db),
 ) -> User:
     s = get_settings()
@@ -114,11 +115,12 @@ def get_current_user(
             db.commit()
         return user
 
-    if credentials is None:
-        logger.warning("get_current_user: No Bearer credentials provided in request")
+    raw_token = credentials.credentials if credentials else token
+    if not raw_token:
+        logger.warning("get_current_user: Neither Bearer credentials nor query token provided in request")
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    info = verify_supabase_token(credentials.credentials)
+    info = verify_supabase_token(raw_token)
     email = info["email"]
 
     allowed = [e.strip().lower() for e in s.allowed_emails.split(",") if e.strip()]

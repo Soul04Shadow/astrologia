@@ -26,36 +26,48 @@ def _abbrev(name: str) -> str:
     return PLANET_ABBREV.get(name, name[:2])
 
 
-def render_north_indian_png(chart: dict, width_px: int = 1000) -> bytes:
+def render_north_indian_png(chart: dict, varga: str = "D1", width_px: int = 800) -> bytes:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from matplotlib.patches import Polygon
 
-    lagna_index = chart["lagna"]["sign_index"]
-
     house_planets: dict[int, list[tuple[str, bool]]] = {h: [] for h in range(1, 13)}
-    
-    # Add Ascendant to House 1
-    lagna_deg = chart.get("lagna", {}).get("degree", "")
-    asc_deg = lagna_deg.split("'")[0] + "'" if lagna_deg else ""
-    asc_label = f"Asc {asc_deg}".strip() if asc_deg else "Asc"
-    house_planets[1].append((asc_label, True))
 
-    for pname, p in chart["planets"].items():
-        delta = ((p["sign_index"] - lagna_index) % 12)
-        house = delta + 1
-        mark = _abbrev(pname)
-        highlight = p["dignity"] == "Exalted" or p.get("retrograde")
-        if p["dignity"] == "Exalted":
-            mark += "*"
-        if p.get("retrograde"):
-            mark += "R"
-        house_planets[house].append((mark, highlight))
+    if varga == "D9":
+        d9 = chart.get("navamsa_d9", {})
+        lagna_index = d9.get("Lagna", {}).get("sign_index", 0)
+        house_planets[1].append(("Asc", True))
+        for pname, v in d9.items():
+            if pname == "Lagna":
+                continue
+            house = ((v["sign_index"] - lagna_index) % 12) + 1
+            mark = _abbrev(pname)
+            is_varg = bool(v.get("vargottama"))
+            if is_varg:
+                mark += "*"
+            house_planets[house].append((mark, is_varg))
+    else:
+        lagna_index = chart["lagna"]["sign_index"]
+        lagna_deg = chart.get("lagna", {}).get("degree", "")
+        asc_deg = lagna_deg.split("'")[0] + "'" if lagna_deg else ""
+        asc_label = f"Asc {asc_deg}".strip() if asc_deg else "Asc"
+        house_planets[1].append((asc_label, True))
+
+        for pname, p in chart["planets"].items():
+            delta = (p["sign_index"] - lagna_index) % 12
+            house = delta + 1
+            mark = _abbrev(pname)
+            highlight = p["dignity"] == "Exalted" or p.get("retrograde")
+            if p["dignity"] == "Exalted":
+                mark += "*"
+            if p.get("retrograde"):
+                mark += "R"
+            house_planets[house].append((mark, highlight))
 
     def sign_for_house(h: int) -> int:
-        return ((lagna_index + h - 1) % 12)
+        return (lagna_index + h - 1) % 12
 
     fig, ax = plt.subplots(figsize=(width_px / 100, width_px / 100), dpi=100)
     ax.set_xlim(0, 400)
@@ -90,20 +102,43 @@ def render_north_indian_png(chart: dict, width_px: int = 1000) -> bytes:
 
 def chart_summary_rows(chart: dict) -> list[dict]:
     rows = []
-    for pname, p in chart["planets"].items():
+
+    # Lagna as the foundational first row
+    lagna = chart.get("lagna", {})
+    lagna_nak = lagna.get("nakshatra", {})
+    rows.append({
+        "planet": "Lagna (Asc)",
+        "sign": lagna.get("sign", ""),
+        "sign_lord": lagna.get("lord", ""),
+        "degree": lagna.get("degree", ""),
+        "house": 1,
+        "nakshatra": f"{lagna_nak.get('name', '')} ({lagna_nak.get('pada', '')})",
+        "nak_lord": lagna_nak.get("lord", ""),
+        "sublord": lagna.get("sublord") or lagna_nak.get("sublord") or "-",
+        "flags": f"Lord {lagna.get('lord', '')}",
+        "is_lagna": True,
+    })
+
+    # 9 Grahas
+    for pname, p in chart.get("planets", {}).items():
         flags = []
-        if p["dignity"] != "Neutral":
+        if p.get("dignity") and p["dignity"] != "Neutral":
             flags.append(p["dignity"])
         if p.get("retrograde"):
-            flags.append("R")
+            flags.append("Retro (R)")
         if p.get("combust"):
             flags.append("Combust")
-        nak = p["nakshatra"]
+        nak = p.get("nakshatra", {})
         rows.append({
             "planet": pname,
-            "sign": f"{p['sign']} {p['degree']}",
-            "house": p["house"],
-            "nakshatra": f"{nak['name']} ({nak['pada']})",
-            "flags": ", ".join(flags) or "-",
+            "sign": p.get("sign", ""),
+            "sign_lord": p.get("sign_lord", ""),
+            "degree": p.get("degree", ""),
+            "house": p.get("house", ""),
+            "nakshatra": f"{nak.get('name', '')} ({nak.get('pada', '')})",
+            "nak_lord": nak.get("lord", ""),
+            "sublord": p.get("sublord") or nak.get("sublord") or "-",
+            "flags": ", ".join(flags) or "Direct",
+            "is_lagna": False,
         })
     return rows

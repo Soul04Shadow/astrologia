@@ -7,6 +7,9 @@ import swisseph as swe
 
 from .constants import (
     COMBUST_ORB,
+    DASHA_ORDER,
+    DASHA_YEARS,
+    DASHA_YEARS_TOTAL,
     DEBILITATION_SIGN,
     EXALTATION_SIGN,
     MOOLATRIKONA,
@@ -61,13 +64,34 @@ def deg_to_dms(deg: float) -> str:
     return f"{d:02d}°{m:02d}'{s:02d}\""
 
 
+def sublord_of(lon: float) -> str:
+    span = 360.0 / 27.0
+    idx = int((lon % 360) / span)
+    _, nak_lord = NAKSHATRAS[idx % 27]
+    rem_deg = (lon % 360) - idx * span
+    start_idx = DASHA_ORDER.index(nak_lord)
+    for i in range(9):
+        p = DASHA_ORDER[(start_idx + i) % 9]
+        sub_span = span * (DASHA_YEARS[p] / DASHA_YEARS_TOTAL)
+        if rem_deg < sub_span or i == 8:
+            return p
+        rem_deg -= sub_span
+    return nak_lord
+
+
 def nakshatra_of(lon: float) -> dict:
     span = 360.0 / 27.0
     idx = int((lon % 360) / span)
     name, lord = NAKSHATRAS[idx % 27]
     rem = lon - idx * span
     pada = int(rem / (span / 4.0)) + 1
-    return {"name": name, "lord": lord, "pada": pada, "frac_elapsed": rem / span}
+    return {
+        "name": name,
+        "lord": lord,
+        "pada": pada,
+        "frac_elapsed": rem / span,
+        "sublord": sublord_of(lon),
+    }
 
 
 def sign_info(lon: float) -> dict:
@@ -127,6 +151,7 @@ def build_planets(positions: dict[str, dict], lagna_sign: int) -> dict[str, dict
             "degree": deg_to_dms(si["degree_in_sign"]),
             "house": ((si["index"] - lagna_sign) % 12) + 1,
             "sign_lord": si["lord"],
+            "sublord": sublord_of(p["lon"]),
             "retrograde": p["retro"],
             "combust": combust,
             "dignity": dignity_of(name, p["lon"]),
@@ -163,6 +188,7 @@ def compute_d1(year: int, month: int, day: int, hour: int, minute: int, tz_name:
             "degree": deg_to_dms(lagna_si["degree_in_sign"]),
             "longitude": round(lagna_lon, 6),
             "lord": lagna_si["lord"],
+            "sublord": sublord_of(lagna_lon),
             "nakshatra": nakshatra_of(lagna_lon),
         },
         "moon_rashi": {
@@ -172,6 +198,7 @@ def compute_d1(year: int, month: int, day: int, hour: int, minute: int, tz_name:
             "nakshatra": moon["nakshatra"]["name"],
             "pada": moon["nakshatra"]["pada"],
             "nakshatra_lord": moon["nakshatra"]["lord"],
+            "sublord": moon["sublord"],
         },
         "planets": planets,
         "_positions_raw": {k: v["lon"] for k, v in positions.items()},

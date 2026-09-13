@@ -13,6 +13,7 @@ import {
   FileText,
   Image as ImageIcon,
   LayoutGrid,
+  Loader2,
   Pencil,
   Scale,
   ScrollText,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import VargaChart, { type PlacementMark } from "@/components/VargaChart";
 import { api, type Chart, type Profile } from "@/lib/api";
+import { getSupabase } from "@/lib/auth";
 import { localizedSignNames, SIGN_CODES_EN } from "@/lib/dictionaries";
 import { useI18n } from "@/lib/i18n";
 
@@ -68,7 +70,46 @@ export default function ChartPage() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabId>("d1");
   const [selectedVarga, setSelectedVarga] = useState<string>("D9");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const chartRef = useRef<SVGSVGElement | null>(null);
+
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      const supabase = getSupabase();
+      let token = "";
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token || "";
+      }
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const url = token
+        ? `${api.base}/api/profiles/${id}/report.pdf?token=${encodeURIComponent(token)}`
+        : `${api.base}/api/profiles/${id}/report.pdf`;
+
+      const res = await fetch(url, { credentials: "omit", headers });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Download failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      const safeName = (profile?.name || "kundli").replace(/[^a-zA-Z0-9_\-\u0900-\u097F]/g, "_");
+      a.download = `Kundli_${safeName}_${chart?.birth_details?.date || "report"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      alert(err?.message || "Failed to download PDF report");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
 
   useEffect(() => {
     Promise.all([api.getProfile(id), api.getChart(id)])
@@ -234,12 +275,21 @@ export default function ChartPage() {
           >
             <Pencil size={14} /> {locale === "hi" ? "संशोधित करें" : "Edit Details"}
           </Link>
-          <a
-            href={`${api.base}/api/profiles/${id}/report.pdf`}
-            className="flex items-center gap-1.5 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white hover:bg-saffron-700 transition shadow-sm"
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="flex items-center gap-1.5 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white hover:bg-saffron-700 disabled:opacity-60 transition shadow-sm"
           >
-            <FileText size={14} /> {t("chart.pdf")}
-          </a>
+            {downloadingPdf ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <FileText size={14} />
+            )}
+            {downloadingPdf
+              ? (locale === "hi" ? "डाउनलोड हो रहा है..." : "Generating PDF...")
+              : t("chart.pdf")}
+          </button>
           <Link
             href={`/chat/${id}`}
             className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-3 py-2 text-xs font-bold text-saffron-800 hover:bg-saffron-100 transition shadow-sm"
@@ -767,21 +817,45 @@ function TransitTable({
 }
 
 function PlanetTable({ chart }: { chart: Chart }) {
-  const { t, terms } = useI18n();
+  const { t, terms, locale } = useI18n();
+  const lagnaSublord = chart.lagna.sublord || chart.lagna.nakshatra?.sublord || "—";
+  const lagnaLordNote = locale === "hi" 
+    ? `स्वामी: ${terms.planet(chart.lagna.lord)}` 
+    : `Lord ${terms.planet(chart.lagna.lord)}`;
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[420px] text-left text-sm">
+      <table className="w-full min-w-[520px] text-left text-sm">
         <thead>
           <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
-            <th className="py-1.5 pr-3">{t("chart.body")}</th>
-            <th className="py-1.5 pr-3">{t("chart.sign")}</th>
-            <th className="py-1.5 pr-3">{t("chart.degree")}</th>
-            <th className="py-1.5 pr-3">{t("chart.house")}</th>
-            <th className="py-1.5 pr-3">{t("chart.nakshatra")}</th>
-            <th className="py-1.5">{t("chart.notes")}</th>
+            <th className="py-2 pr-3">{t("chart.body")}</th>
+            <th className="py-2 pr-3">{t("chart.sign")}</th>
+            <th className="py-2 pr-3">{t("chart.degree")}</th>
+            <th className="py-2 pr-3">{t("chart.house")}</th>
+            <th className="py-2 pr-3">{t("chart.nakshatra")}</th>
+            <th className="py-2 pr-3 text-saffron-800">{t("chart.sublord")}</th>
+            <th className="py-2">{t("chart.notes")}</th>
           </tr>
         </thead>
         <tbody>
+          {/* Lagna / Ascendant Row */}
+          <tr className="border-b border-saffron-200/80 bg-saffron-50/50 font-medium">
+            <td className="py-2 pr-3 font-bold text-saffron-900">
+              {locale === "hi" ? "लग्न (Asc)" : "Lagna (Asc)"}
+            </td>
+            <td className="py-2 pr-3 font-semibold text-stone-800">{terms.sign(chart.lagna.sign)}</td>
+            <td className="py-2 pr-3 tabular-nums text-stone-700">{chart.lagna.degree}</td>
+            <td className="py-2 pr-3 font-bold text-saffron-800">1</td>
+            <td className="py-2 pr-3 text-stone-700">
+              {chart.lagna.nakshatra ? `${terms.nakshatra(chart.lagna.nakshatra.name)} (${chart.lagna.nakshatra.pada})` : "—"}
+            </td>
+            <td className="py-2 pr-3 font-bold text-saffron-800">
+              {lagnaSublord !== "—" ? terms.planet(lagnaSublord) : "—"}
+            </td>
+            <td className="py-2 text-xs font-semibold text-saffron-700">{lagnaLordNote}</td>
+          </tr>
+
+          {/* 9 Grahas */}
           {PLANET_ORDER.map((pname) => {
             const p = chart.planets[pname];
             const notes = [
@@ -789,16 +863,20 @@ function PlanetTable({ chart }: { chart: Chart }) {
               p.retrograde ? t("chart.retrograde") : "",
               p.combust ? t("chart.combust") : "",
             ].filter(Boolean);
+            const sub = p.sublord || p.nakshatra?.sublord || "—";
             return (
-              <tr key={pname} className="border-b border-saffron-100/70">
-                <td className="py-1.5 pr-3 font-semibold">{terms.planet(pname)}</td>
-                <td className="py-1.5 pr-3">{terms.sign(p.sign)}</td>
-                <td className="py-1.5 pr-3 tabular-nums">{p.degree}</td>
-                <td className="py-1.5 pr-3">{p.house}</td>
-                <td className="py-1.5 pr-3">
+              <tr key={pname} className="border-b border-saffron-100/70 hover:bg-saffron-50/30 transition-colors">
+                <td className="py-2 pr-3 font-semibold text-stone-900">{terms.planet(pname)}</td>
+                <td className="py-2 pr-3 text-stone-800">{terms.sign(p.sign)}</td>
+                <td className="py-2 pr-3 tabular-nums text-stone-700">{p.degree}</td>
+                <td className="py-2 pr-3 font-semibold text-stone-700">{p.house}</td>
+                <td className="py-2 pr-3 text-stone-700">
                   {terms.nakshatra(p.nakshatra.name)} ({p.nakshatra.pada})
                 </td>
-                <td className="py-1.5 text-xs font-semibold text-saffron-700">{notes.join(" · ") || "—"}</td>
+                <td className="py-2 pr-3 font-semibold text-saffron-800">
+                  {sub !== "—" ? terms.planet(sub) : "—"}
+                </td>
+                <td className="py-2 text-xs font-semibold text-saffron-700">{notes.join(" · ") || "—"}</td>
               </tr>
             );
           })}

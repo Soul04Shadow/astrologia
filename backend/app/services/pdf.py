@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import os
+import shutil
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -17,67 +18,107 @@ _env = Environment(
     autoescape=True,
 )
 
-EDGE_CANDIDATES = [
+BROWSER_CANDIDATES = [
+    # Linux system paths
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/microsoft-edge",
+    "/usr/bin/microsoft-edge-stable",
+    "/snap/bin/chromium",
+    # Windows system paths
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
 ]
 
 
+def _find_headless_browser() -> str | None:
+    for cmd in ["google-chrome", "chromium", "chromium-browser", "microsoft-edge", "msedge"]:
+        path = shutil.which(cmd)
+        if path and os.path.exists(path):
+            return path
+    for exe in BROWSER_CANDIDATES:
+        if os.path.exists(exe):
+            return exe
+    return None
+
+
 def render_report_html(chart: dict, profile_name: str, place_name: str | None = None) -> str:
-    png = render_north_indian_png(chart)
-    png_b64 = base64.b64encode(png).decode()
+    d1_png = render_north_indian_png(chart, varga="D1", width_px=800)
+    d1_b64 = base64.b64encode(d1_png).decode()
+
+    d9_png = render_north_indian_png(chart, varga="D9", width_px=800)
+    d9_b64 = base64.b64encode(d9_png).decode()
+
     rows = chart_summary_rows(chart)
     dasha = chart.get("dasha", {})
     current = dasha.get("current", {}) or {}
     template = _env.get_template("report.html")
+
+    # Format Julian Day and Coordinates
+    birth = chart.get("birth_details", {})
+    lat = birth.get("latitude", 0.0)
+    lon = birth.get("longitude", 0.0)
+    lat_str = f"{abs(lat):.2f}° {'N' if lat >= 0 else 'S'}"
+    lon_str = f"{abs(lon):.2f}° {'E' if lon >= 0 else 'W'}"
+
     return template.render(
         name=profile_name,
         generated=datetime.now(timezone.utc).strftime("%d %B %Y, %H:%M UTC"),
-        birth=chart["birth_details"],
+        birth=birth,
+        lat_str=lat_str,
+        lon_str=lon_str,
         place_name=place_name,
-        lagna=chart["lagna"],
-        moon=chart["moon_rashi"],
-        chart_png=f"data:image/png;base64,{png_b64}",
+        lagna=chart.get("lagna", {}),
+        moon=chart.get("moon_rashi", {}),
+        d1_png=f"data:image/png;base64,{d1_b64}",
+        d9_png=f"data:image/png;base64,{d9_b64}",
+        chart_png=f"data:image/png;base64,{d1_b64}",
         rows=rows,
         current_maha=(current.get("mahadasha") or {}),
         current_antar=(current.get("antardasha") or {}),
-        mahadashas=dasha.get("mahadashas", [])[:12],
+        mahadashas=dasha.get("mahadashas", []),
         yogas=chart.get("yogas", []),
         panchang=chart.get("panchang_today"),
+        ashtakavarga=chart.get("ashtakavarga"),
         d9=chart.get("navamsa_d9", {}),
     )
 
 
-def _print_pdf_via_edge(html: str, out_path: str) -> bool:
-    for exe in EDGE_CANDIDATES:
-        if not os.path.exists(exe):
-            continue
-        tmp_dir = tempfile.mkdtemp(prefix="vedic_report_")
-        html_path = Path(tmp_dir) / "report.html"
-        html_path.write_text(html, encoding="utf-8")
+def _print_pdf_via_browser(html: str, out_path: str) -> bool:
+    exe = _find_headless_browser()
+    if not exe:
+        return False
+    tmp_dir = tempfile.mkdtemp(prefix="vedic_report_")
+    html_path = Path(tmp_dir) / "report.html"
+    html_path.write_text(html, encoding="utf-8")
+    try:
+        subprocess.run(
+            [
+                exe,
+                "--headless",
+                "--disable-gpu",
+                "--no-pdf-header-footer",
+                "--no-sandbox",
+                f"--print-to-pdf={out_path}",
+                html_path.as_uri(),
+            ],
+            timeout=35,
+            capture_output=True,
+        )
+        if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
+            return True
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    finally:
         try:
-            subprocess.run(
-                [
-                    exe,
-                    "--headless",
-                    "--disable-gpu",
-                    "--no-pdf-header-footer",
-                    f"--print-to-pdf={out_path}",
-                    html_path.as_uri(),
-                ],
-                timeout=30,
-                capture_output=True,
-            )
-            if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
-                return True
-        except (subprocess.TimeoutExpired, OSError):
-            continue
-        finally:
-            try:
-                html_path.unlink(missing_ok=True)
-                os.rmdir(tmp_dir)
-            except OSError:
-                pass
+            html_path.unlink(missing_ok=True)
+            os.rmdir(tmp_dir)
+        except OSError:
+            pass
     return False
 
 
@@ -87,7 +128,7 @@ def render_report_pdf(chart: dict, profile_name: str, place_name: str | None = N
     tmp_dir = tempfile.mkdtemp(prefix="vedic_pdf_")
     out_path = str(Path(tmp_dir) / "report.pdf")
     try:
-        if _print_pdf_via_edge(html, out_path):
+        if _print_pdf_via_browser(html, out_path):
             with open(out_path, "rb") as f:
                 return f.read()
     finally:

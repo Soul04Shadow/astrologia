@@ -5,6 +5,7 @@ export interface NakshatraInfo {
   lord: string;
   pada: number;
   frac_elapsed?: number;
+  sublord?: string;
 }
 
 export interface PlanetPlacement {
@@ -14,6 +15,7 @@ export interface PlanetPlacement {
   degree: string;
   house: number;
   sign_lord: string;
+  sublord?: string;
   retrograde: boolean;
   combust: boolean;
   dignity: string;
@@ -36,6 +38,7 @@ export interface Chart {
     sign_index: number;
     degree: string;
     lord: string;
+    sublord?: string;
     nakshatra: NakshatraInfo;
   };
   moon_rashi: {
@@ -44,6 +47,7 @@ export interface Chart {
     nakshatra: string;
     pada: number;
     nakshatra_lord: string;
+    sublord?: string;
   };
   planets: Record<string, PlanetPlacement>;
   dasha: {

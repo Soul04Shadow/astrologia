@@ -1,73 +1,469 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8" />
+<title>Vedic Astrology Consultation Dossier — {{ name }}</title>
 <style>
-  @page { size: A4; margin: 1.6cm; }
-  body { font-family: "Nirmala UI", "Helvetica", sans-serif; color: #27272a; font-size: 10pt; }
-  h1 { color: #EA580C; font-size: 20pt; margin-bottom: 2pt; }
-  h2 { color: #C2410C; font-size: 13pt; border-bottom: 1.5pt solid #FED7AA; padding-bottom: 3pt; margin-top: 16pt; }
-  .sub { color: #78716c; font-size: 9pt; }
-  .meta { background-color: #FFF8E7; padding: 8pt; margin-top: 8pt; }
-  table { width: 100%; border-collapse: collapse; margin-top: 6pt; }
-  th { background-color: #EA580C; color: #ffffff; padding: 4pt 6pt; font-size: 9pt; text-align: left; }
-  td { border-bottom: 0.5pt solid #e7e5e4; padding: 4pt 6pt; font-size: 9pt; }
-  .chart { text-align: center; margin-top: 10pt; }
-  ul { margin-top: 4pt; }
+  @page {
+    size: A4;
+    margin: 0.7cm 0.9cm 0.7cm 0.9cm;
+    @bottom-right {
+      content: "Page " counter(page);
+      font-size: 7.5pt;
+      color: #78716c;
+    }
+  }
+
+  body {
+    font-family: "DejaVu Sans", "Helvetica Neue", Arial, sans-serif;
+    color: #1c1917;
+    font-size: 8pt;
+    line-height: 1.25;
+    background-color: #ffffff;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Header Styles */
+  .header-wrap {
+    text-align: center;
+    border-bottom: 1.5pt solid #ea580c;
+    padding-bottom: 3pt;
+    margin-bottom: 5pt;
+  }
+  .sacred-invocation {
+    font-size: 9.5pt;
+    font-weight: bold;
+    color: #b45309;
+    letter-spacing: 2px;
+    margin: 0 0 1pt 0;
+  }
+  .doc-title {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #c2410c;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .doc-subtitle {
+    font-size: 7.5pt;
+    color: #78716c;
+    margin: 1pt 0 0 0;
+  }
+
+  /* Box & Card Container */
+  .section-title {
+    font-size: 8.5pt;
+    font-weight: bold;
+    color: #9a3412;
+    border-bottom: 0.8pt solid #fdba74;
+    padding-bottom: 1.5pt;
+    margin-top: 5pt;
+    margin-bottom: 3pt;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .meta-box {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fffbf0;
+    border: 0.8pt solid #fed7aa;
+    margin-bottom: 5pt;
+  }
+  .meta-box td {
+    padding: 2.5pt 6pt;
+    font-size: 7.5pt;
+    vertical-align: top;
+    border-bottom: 0.5pt solid #ffedd5;
+  }
+  .meta-label {
+    font-weight: bold;
+    color: #9a3412;
+    width: 20%;
+  }
+  .meta-val {
+    color: #1c1917;
+  }
+
+  /* Core 4-Pillar Overview Grid */
+  .pillars-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 5pt;
+  }
+  .pillar-cell {
+    width: 25%;
+    background-color: #fff7ed;
+    border: 0.8pt solid #fdba74;
+    padding: 3pt 4pt;
+    text-align: center;
+    vertical-align: top;
+  }
+  .pillar-title {
+    font-size: 6.8pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #c2410c;
+    letter-spacing: 0.3px;
+    margin-bottom: 1pt;
+  }
+  .pillar-val {
+    font-size: 9.5pt;
+    font-weight: bold;
+    color: #431407;
+    margin-bottom: 1pt;
+  }
+  .pillar-sub {
+    font-size: 6.8pt;
+    color: #57534e;
+    line-height: 1.15;
+  }
+
+  /* Dual Charts Layout */
+  .charts-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4pt 0 0 0;
+  }
+  .chart-col {
+    width: 50%;
+    text-align: center;
+    vertical-align: top;
+    padding: 1pt 4pt;
+  }
+  .chart-heading {
+    font-size: 8.5pt;
+    font-weight: bold;
+    color: #c2410c;
+    margin-bottom: 2pt;
+  }
+  .chart-img {
+    width: 220px;
+    max-width: 100%;
+    height: auto;
+    border: 0.8pt solid #fed7aa;
+    background-color: #fffcf2;
+  }
+  .chart-legend {
+    font-size: 6.8pt;
+    color: #78716c;
+    margin-top: 1.5pt;
+  }
+
+  /* Standard Tables */
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2pt;
+    margin-bottom: 4pt;
+  }
+  table.data-table th {
+    background-color: #ea580c;
+    color: #ffffff;
+    font-size: 7.2pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 2.5pt 4pt;
+    text-align: left;
+    border: 0.5pt solid #c2410c;
+  }
+  table.data-table td {
+    border: 0.5pt solid #fed7aa;
+    padding: 2.2pt 4pt;
+    font-size: 7.2pt;
+  }
+  tr.lagna-row {
+    background-color: #fff7ed;
+    font-weight: bold;
+  }
+  tr.even-row {
+    background-color: #fefdfb;
+  }
+  tr.odd-row {
+    background-color: #ffffff;
+  }
+  .highlight-sublord {
+    font-weight: bold;
+    color: #c2410c;
+  }
+  .status-active {
+    background-color: #ea580c;
+    color: #ffffff;
+    padding: 0.5pt 3pt;
+    font-size: 6.5pt;
+    font-weight: bold;
+    border-radius: 2pt;
+  }
+
+  /* Page break rules */
+  .page-break {
+    page-break-after: always;
+  }
+  .keep-together {
+    page-break-inside: avoid;
+  }
+
+  /* Yogas and Notes */
+  .yoga-name {
+    font-weight: bold;
+    color: #9a3412;
+  }
+  .yoga-basis {
+    color: #44403c;
+  }
+
+  /* Astrologer Remarks Box */
+  .consultation-box {
+    border: 0.8pt dashed #ea580c;
+    background-color: #fffbf0;
+    padding: 4pt 6pt;
+    margin-top: 4pt;
+    margin-bottom: 3pt;
+  }
+  .consultation-header {
+    font-size: 7.5pt;
+    font-weight: bold;
+    color: #c2410c;
+    margin-bottom: 2pt;
+    text-transform: uppercase;
+  }
+
+  /* Footer */
+  .footer-note {
+    text-align: center;
+    font-size: 6.8pt;
+    color: #a8a29e;
+    border-top: 0.5pt solid #e7e5e4;
+    padding-top: 2pt;
+    margin-top: 4pt;
+  }
 </style>
 </head>
 <body>
-  <h1>Kundli Report — {{ name }}</h1>
-  <div class="sub">Generated by Vedic AI Astrologer on {{ generated }} · Lahiri sidereal · Swiss Ephemeris</div>
 
-  <div class="meta">
-    <b>Birth:</b> {{ birth.date }} at {{ birth.time }} ({{ birth.tz_name }})<br/>
-    {% if place_name %}<b>Place:</b> {{ place_name }}<br/>{% endif %}
-    <b>Coordinates:</b> {{ "%.4f"|format(birth.latitude) }}, {{ "%.4f"|format(birth.longitude) }}<br/>
-    <b>Lagna:</b> {{ lagna.sign }} {{ lagna.degree }} (Lord {{ lagna.lord }}) &nbsp;
-    <b>Rashi:</b> {{ moon.sign }} &nbsp; <b>Nakshatra:</b> {{ moon.nakshatra }} pada {{ moon.pada }}
+  <!-- Header -->
+  <div class="header-wrap">
+    <div class="sacred-invocation">॥ श्री गणेशाय नमः ॥</div>
+    <div class="doc-title">Vedic Horoscope & Kundli Dossier</div>
+    <div class="doc-subtitle">जातक जन्म पत्रिका व ज्योतिषीय प्रतिवेदन · High-Precision Astrological Dossier</div>
   </div>
 
-  <div class="chart">
-    <img src="{{ chart_png }}" width="440" />
-    <p class="sub" style="margin-top:2pt;">* exalted · R retrograde · two-letter codes are signs (Ar=Aries … Pi=Pisces)</p>
+  <!-- Birth & Planetary Metadata -->
+  <table class="meta-box">
+    <tr>
+      <td class="meta-label">Native Name (जातक):</td>
+      <td class="meta-val"><b>{{ name }}</b></td>
+      <td class="meta-label">Date of Birth (जन्म तिथि):</td>
+      <td class="meta-val"><b>{{ birth.date }}</b></td>
+    </tr>
+    <tr>
+      <td class="meta-label">Birth Time (समय):</td>
+      <td class="meta-val">{{ birth.time }} ({{ birth.tz_name }})</td>
+      <td class="meta-label">Birth Place (स्थान):</td>
+      <td class="meta-val">{% if place_name %}<b>{{ place_name }}</b>{% else %}Coordinates{% endif %}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Coordinates (अक्षांश/रेखांश):</td>
+      <td class="meta-val">{{ lat_str }}, {{ lon_str }}</td>
+      <td class="meta-label">Ayanamsa & Engine:</td>
+      <td class="meta-val">Lahiri (Chitra Paksha) · Swiss Ephemeris</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Generated On:</td>
+      <td class="meta-val">{{ generated }}</td>
+      <td class="meta-label">Julian Day (JD):</td>
+      <td class="meta-val">{{ birth.julian_day }}</td>
+    </tr>
+  </table>
+
+  <!-- 4 Pillars Summary -->
+  <table class="pillars-table">
+    <tr>
+      <td class="pillar-cell">
+        <div class="pillar-title">Lagna / Ascendant (लग्न)</div>
+        <div class="pillar-val">{{ lagna.sign }}</div>
+        <div class="pillar-sub">{{ lagna.degree }}<br/>Lord: <b>{{ lagna.lord }}</b><br/>Sub: <b>{{ lagna.sublord or lagna.nakshatra.sublord or '—' }}</b></div>
+      </td>
+      <td class="pillar-cell">
+        <div class="pillar-title">Moon Rashi (चंद्र राशि)</div>
+        <div class="pillar-val">{{ moon.sign }}</div>
+        <div class="pillar-sub">Nakshatra: <b>{{ moon.nakshatra }}</b><br/>Pada: <b>{{ moon.pada }}</b> (Lord: {{ moon.nakshatra_lord }})<br/>Sub: <b>{{ moon.sublord or '—' }}</b></div>
+      </td>
+      <td class="pillar-cell">
+        <div class="pillar-title">Running Dasha (दशा)</div>
+        <div class="pillar-val">{{ current_maha.lord or '—' }} / {{ current_antar.lord or '—' }}</div>
+        <div class="pillar-sub">Maha: <b>{{ current_maha.lord }}</b> (to {{ current_maha.end_date }})<br/>Antar: <b>{{ current_antar.lord }}</b> ({% if current_antar %}{{ current_antar.start_date }} - {{ current_antar.end_date }}{% endif %})</div>
+      </td>
+      <td class="pillar-cell">
+        <div class="pillar-title">Birth Panchang (पञ्चाङ्ग)</div>
+        <div class="pillar-val">{% if panchang and panchang.weekday %}{{ panchang.weekday }}{% else %}Vedic Day{% endif %}</div>
+        <div class="pillar-sub">
+          {% if panchang and panchang.tithi %}
+            Tithi: <b>{{ panchang.tithi.name }} ({{ panchang.tithi.paksha }})</b><br/>
+            Yoga: <b>{{ panchang.yoga.name }}</b> · Karana: <b>{{ panchang.karana.name }}</b>
+          {% else %}
+            Vaar Lord: <b>{{ lagna.lord }}</b><br/>Surya Rasi: <b>Vedic Solar</b>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Dual Kundli Charts -->
+  <table class="charts-table keep-together">
+    <tr>
+      <td class="chart-col">
+        <div class="chart-heading">D1 Rasi Kundli (लग्न / राशि कुण्डली)</div>
+        <img src="{{ d1_png }}" class="chart-img" />
+        <div class="chart-legend">Numbers indicate Rashis (1=Aries … 12=Pisces) · * Exalted · R Retrograde</div>
+      </td>
+      <td class="chart-col">
+        <div class="chart-heading">D9 Navamsha Kundli (नवमांश कुण्डली)</div>
+        <img src="{{ d9_png }}" class="chart-img" />
+        <div class="chart-legend">Dharma & Fortune Chart · Asc = Navamsha Lagna · * Vargottama</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Planetary Positions & KP Sublords Table -->
+  <div class="keep-together">
+    <div class="section-title">Planetary Positions & KP Sublords (ग्रह स्पष्ट स्थिति व उपस्वामी)</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 14%;">Body (ग्रह)</th>
+          <th style="width: 12%;">Sign (राशि)</th>
+          <th style="width: 11%;">Sign Lord</th>
+          <th style="width: 14%;">Longitude (° ' ")</th>
+          <th style="width: 7%;">House</th>
+          <th style="width: 16%;">Nakshatra (Pada)</th>
+          <th style="width: 10%;">Nak Lord</th>
+          <th style="width: 10%;">Sublord</th>
+          <th style="width: 10%;">State / Motion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{% if r.is_lagna %}lagna-row{% elif loop.index % 2 == 0 %}even-row{% else %}odd-row{% endif %}">
+          <td><b>{{ r.planet }}</b></td>
+          <td>{{ r.sign }}</td>
+          <td>{{ r.sign_lord }}</td>
+          <td><code>{{ r.degree }}</code></td>
+          <td style="text-align: center;"><b>{{ r.house }}</b></td>
+          <td>{{ r.nakshatra }}</td>
+          <td>{{ r.nak_lord }}</td>
+          <td class="highlight-sublord">{{ r.sublord }}</td>
+          <td>{{ r.flags }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
-  <h2>Planetary Positions (D1)</h2>
-  <table>
-    <tr><th>Planet</th><th>Sign &deg;</th><th>House</th><th>Nakshatra</th><th>Notes</th></tr>
-    {% for r in rows %}
-    <tr><td>{{ r.planet }}</td><td>{{ r.sign }}</td><td>{{ r.house }}</td><td>{{ r.nakshatra }}</td><td>{{ r.flags }}</td></tr>
-    {% endfor %}
-  </table>
+  <!-- Vimshottari Mahadasha Timeline -->
+  <div class="keep-together">
+    <div class="section-title">Vimshottari Dasha Sequence (विंशोत्तरी दशा क्रम)</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 25%;">Mahadasha Lord</th>
+          <th style="width: 25%;">From Date</th>
+          <th style="width: 25%;">To Date</th>
+          <th style="width: 25%;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in mahadashas %}
+        <tr class="{% if loop.index % 2 == 0 %}even-row{% else %}odd-row{% endif %}">
+          <td><b>{{ m.lord }} Mahadasha</b></td>
+          <td>{{ m.start_date }}</td>
+          <td>{{ m.end_date }}</td>
+          <td>
+            {% if current_maha and m.lord == current_maha.lord and m.start_date == current_maha.start_date %}
+              <span class="status-active">ACTIVE / चालू</span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-  {% if current_maha %}
-  <h2>Current Dasha</h2>
-  <p><b>{{ current_maha.lord }} Mahadasha</b> ({{ current_maha.start_date }} to {{ current_maha.end_date }})
-     — <b>{{ current_antar.lord }} Antardasha</b> ({% if current_antar %}{{ current_antar.start_date }} to {{ current_antar.end_date }}{% endif %})</p>
-  {% endif %}
-
-  <h2>Mahadasha Timeline</h2>
-  <table>
-    <tr><th>Lord</th><th>From</th><th>To</th></tr>
-    {% for m in mahadashas %}
-    <tr><td>{{ m.lord }}</td><td>{{ m.start_date }}</td><td>{{ m.end_date }}</td></tr>
-    {% endfor %}
-  </table>
-
+  <!-- Detected Astrological Yogas -->
   {% if yogas %}
-  <h2>Yogas Detected</h2>
-  <ul>
-    {% for y in yogas %}<li><b>{{ y.name }}</b> — {{ y.basis }}</li>{% endfor %}
-  </ul>
+  <div class="keep-together">
+    <div class="section-title">Detected Astrological Yogas (प्रमुख ग्रह योग)</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 32%;">Yoga Name (योग नाम)</th>
+          <th style="width: 68%;">Astrological Basis & Impact (शास्त्रीय आधार)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for y in yogas %}
+        <tr class="{% if loop.index % 2 == 0 %}even-row{% else %}odd-row{% endif %}">
+          <td class="yoga-name">{{ y.name }}</td>
+          <td class="yoga-basis">{{ y.basis }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 
-  {% if panchang and panchang.get("tithi") %}
-  <h2>Panchang of Birth Day (today's snapshot)</h2>
-  <p>Tithi: {{ panchang.tithi.paksha }} {{ panchang.tithi.name }} · Nakshatra: {{ panchang.nakshatra.name }} ({{ panchang.nakshatra.lord }}) ·
-     Yoga: {{ panchang.yoga.name }} · Karana: {{ panchang.karana.name }} · Var: {{ panchang.weekday }} (lord {{ panchang.var_lord }})</p>
+  <!-- Sarvashtakavarga (SAV) Summary if present -->
+  {% if ashtakavarga and ashtakavarga.house_strengths %}
+  <div class="keep-together">
+    <div class="section-title">Sarvashtakavarga House Bindus (सर्वाष्टकवर्ग बिन्दु)</div>
+    <table class="data-table" style="text-align: center;">
+      <thead>
+        <tr>
+          {% for h in range(1, 13) %}
+          <th>H{{ h }}</th>
+          {% endfor %}
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {% for h in range(1, 13) %}
+          {% set hs = ashtakavarga.house_strengths.get(h) or ashtakavarga.house_strengths.get(h|string) %}
+          <td style="font-weight:bold; {% if hs and hs.points >= 30 %}background-color:#dcfce7; color:#15803d;{% elif hs and hs.points < 25 %}background-color:#fee2e2; color:#b91c1c;{% endif %}">
+            {% if hs %}{{ hs.points }}{% else %}—{% endif %}
+          </td>
+          {% endfor %}
+          <td style="font-weight:bold; background-color:#ffedd5; color:#9a3412;">{{ ashtakavarga.total_bindus or 337 }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size:7.5pt; color:#78716c; margin-top:-4pt; margin-bottom:6pt;">
+      Standard benchmark: 28 Bindus per house. Green indicates strong houses (≥30 pts), red indicates sensitive houses (&lt;25 pts).
+    </div>
+  </div>
   {% endif %}
 
-  <p class="sub">Navamsa (D9): {% for p, v in d9.items() %}{{ p }}={{ v.sign }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  <!-- Astrologer Consultation & Remedies Section -->
+  <div class="keep-together consultation-box">
+    <div class="consultation-header">Astrological Consultation & Guidance Notes (परामर्श व उपाय टिप्पणी)</div>
+    <div style="font-size: 8pt; color: #78716c; min-height: 48pt;">
+      <i>Space reserved for personal consultation remarks, favorable gemstone (रत्न), beneficial mantra (मंत्र), charity & remedies (दान व उपाय) advised by the consulting astrologer:</i>
+      <div style="border-bottom: 0.5pt dotted #fdba74; margin-top: 14pt;"></div>
+      <div style="border-bottom: 0.5pt dotted #fdba74; margin-top: 14pt;"></div>
+      <div style="border-bottom: 0.5pt dotted #fdba74; margin-top: 14pt;"></div>
+    </div>
+  </div>
+
+  <!-- Document Footer -->
+  <div class="footer-note">
+    Confidential Vedic Astrological Consultation Report · Calculated using Swiss Ephemeris (Lahiri Sidereal Ayanamsa) · © {{ name }} Natal Chart
+  </div>
+
 </body>
 </html>
