@@ -42,11 +42,13 @@ export default function ProfileForm({
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const hasSyncedInitialRef = useRef(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync initialData if loaded asynchronously
+  // Sync initialData if loaded asynchronously (only once upon initial load)
   useEffect(() => {
-    if (initialData) {
+    if (initialData && !hasSyncedInitialRef.current) {
+      hasSyncedInitialRef.current = true;
       if (initialData.name) setName(initialData.name);
       if (initialData.birth_date) setBirthDate(initialData.birth_date);
       if (initialData.birth_time) setBirthTime(initialData.birth_time);

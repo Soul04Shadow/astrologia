@@ -21,6 +21,13 @@ const MONTHS_HI = [
   "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर",
 ];
 
+function getDaysInMonth(year: number | string, month: number | string): number {
+  const y = parseInt(String(year), 10);
+  const m = parseInt(String(month), 10);
+  if (isNaN(y) || isNaN(m) || m < 1 || m > 12) return 31;
+  return new Date(y, m, 0).getDate();
+}
+
 export default function BirthDateTimePicker({
   dateValue,
   timeValue,
@@ -200,18 +207,20 @@ export default function BirthDateTimePicker({
                 setDayStr(val);
                 if (val.length === 2) {
                   let num = parseInt(val, 10);
-                  if (!isNaN(num) && num >= 1 && num <= 31) {
+                  const maxDays = getDaysInMonth(yearRef.current, monthRef.current);
+                  if (!isNaN(num) && num >= 1 && num <= maxDays) {
                     emitDate(yearRef.current, monthRef.current, String(num).padStart(2, "0"));
                   }
                 }
               }}
               onBlur={(e) => {
                 const raw = e.target.value.replace(/\D/g, "").trim();
+                const maxDays = getDaysInMonth(yearRef.current, monthRef.current);
                 if (!raw) {
                   setDayStr("01");
                   emitDate(yearRef.current, monthRef.current, "01");
                 } else {
-                  const num = Math.min(31, Math.max(1, parseInt(raw, 10) || 1));
+                  const num = Math.min(maxDays, Math.max(1, parseInt(raw, 10) || 1));
                   const padded = String(num).padStart(2, "0");
                   setDayStr(padded);
                   emitDate(yearRef.current, monthRef.current, padded);
@@ -232,7 +241,16 @@ export default function BirthDateTimePicker({
               onChange={(e) => {
                 const val = e.target.value;
                 setMonthStr(val);
-                emitDate(yearRef.current, val, dayRef.current || "01");
+                const maxDays = getDaysInMonth(yearRef.current, val);
+                let currentDay = parseInt(dayRef.current || "1", 10);
+                if (isNaN(currentDay)) currentDay = 1;
+                if (currentDay > maxDays) {
+                  const clampedDay = String(maxDays).padStart(2, "0");
+                  setDayStr(clampedDay);
+                  emitDate(yearRef.current, val, clampedDay);
+                } else {
+                  emitDate(yearRef.current, val, dayRef.current || "01");
+                }
               }}
               className={`${inputStyle} text-left px-2`}
               aria-label="Month"
