@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   Loader2,
   Pencil,
+  Printer,
   Scale,
   ScrollText,
   Sparkles,
@@ -119,6 +120,23 @@ export default function ChartPage() {
       alert(err?.message || "Failed to download PDF report");
     } finally {
       setDownloadingPdf(false);
+    }
+  }
+
+  async function handleOpenHtmlReport() {
+    try {
+      const supabase = getSupabase();
+      let token = "";
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token || "";
+      }
+      const url = token
+        ? `${api.base}/api/profiles/${id}/report.html?token=${encodeURIComponent(token)}`
+        : `${api.base}/api/profiles/${id}/report.html`;
+      window.open(url, "_blank");
+    } catch {
+      alert("Failed to open report preview");
     }
   }
 
@@ -300,6 +318,15 @@ export default function ChartPage() {
             {downloadingPdf
               ? (locale === "hi" ? "डाउनलोड हो रहा है..." : "Generating PDF...")
               : t("chart.pdf")}
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenHtmlReport}
+            className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-3 py-2 text-xs font-bold text-stone-700 hover:bg-saffron-100 transition shadow-sm"
+            title={locale === "hi" ? "ब्राउज़र प्रिंट / पूर्वावलोकन" : "Browser Print / Preview"}
+          >
+            <Printer size={14} />
+            {locale === "hi" ? "प्रिंट दृश्य" : "Print View"}
           </button>
           <Link
             href={`/chat/${id}`}

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi import Response
+from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.db import ChatMessage, Profile, User, get_db
 from app.routers.charts import _chart_for_profile
 from app.schemas import ChatMessageOut, ProfileCreate, ProfileOut
 from app.services.auth import get_current_user
-from app.services.pdf import render_report_pdf
+from app.services.pdf import render_report_html, render_report_pdf
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
@@ -41,6 +41,19 @@ def report_pdf(profile_id: int, db: Session = Depends(get_db), user: User = Depe
         )
     }
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+@router.get("/{profile_id}/report.html", response_class=HTMLResponse)
+def report_html(profile_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    profile = _owned_profile_or_404(db, profile_id, user)
+    try:
+        chart = _chart_for_profile(profile)
+        html_str = render_report_html(chart, profile.name, place_name=profile.place_name)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"HTML report generation failed: {e}")
+    return HTMLResponse(content=html_str)
 
 
 @router.post("", response_model=ProfileOut)

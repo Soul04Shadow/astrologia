@@ -101,6 +101,7 @@ def _print_pdf_via_browser(html: str, out_path: str) -> bool:
                 exe,
                 "--headless",
                 "--disable-gpu",
+                "--disable-dev-shm-usage",
                 "--no-pdf-header-footer",
                 "--no-sandbox",
                 f"--print-to-pdf={out_path}",
