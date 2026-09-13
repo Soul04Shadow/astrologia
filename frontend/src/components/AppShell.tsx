@@ -11,10 +11,10 @@ import {
   Languages,
   Menu,
   MessageSquare,
+  MessageSquareQuote,
   Pencil,
   PlusCircle,
   ScrollText,
-  Sparkles,
   Sun,
   UserRound,
   Users,
@@ -317,7 +317,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       : "text-stone-700 hover:bg-saffron-100 hover:text-saffron-900"
                   } ${collapsed ? "justify-center px-0 py-2.5" : ""}`}
                 >
-                  <Sparkles
+                  <MessageSquareQuote
                     size={17}
                     strokeWidth={2.2}
                     className={
@@ -419,25 +419,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className={`transition-all duration-200 ${collapsed ? "md:pl-[68px]" : "md:pl-60"}`}>
+      <div className={`min-w-0 flex-1 transition-all duration-200 ${collapsed ? "md:pl-[68px]" : "md:pl-60"}`}>
         <header className="sticky top-0 z-30 border-b border-goldline bg-cream/90 backdrop-blur">
           <div className="flex items-center gap-2 px-3 py-2.5 sm:px-6">
-            {isSubpage ? (
+            {/* Always accessible drawer toggle on mobile */}
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="rounded-lg p-2 text-saffron-800 hover:bg-saffron-100 md:hidden transition shrink-0"
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
+
+            {/* Quick back action on subpages */}
+            {isSubpage && (
               <button
                 onClick={() => router.back()}
-                className="flex items-center gap-1 rounded-lg p-2 text-saffron-800 hover:bg-saffron-100 transition"
+                className="flex items-center gap-1 rounded-lg p-1.5 text-saffron-800 hover:bg-saffron-100 transition shrink-0"
                 aria-label={locale === "hi" ? "वापस जाएँ" : "Back"}
                 title={locale === "hi" ? "वापस जाएँ" : "Back"}
               >
-                <ArrowLeft size={19} />
-              </button>
-            ) : (
-              <button
-                onClick={() => setMobileOpen(true)}
-                className="rounded-lg p-2 text-saffron-800 hover:bg-saffron-100 md:hidden"
-                aria-label="Open menu"
-              >
-                <Menu size={19} />
+                <ArrowLeft size={18} />
               </button>
             )}
 
@@ -527,7 +529,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto max-w-6xl px-3 py-5 pb-24 md:pb-8 sm:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-3 py-5 pb-24 md:pb-8 sm:px-6">{children}</main>
         <MobileBottomNav />
       </div>
     </div>

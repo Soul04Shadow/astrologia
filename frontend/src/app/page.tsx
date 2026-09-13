@@ -5,10 +5,10 @@ import {
   Calendar,
   Clock,
   MapPin,
+  MessageSquareQuote,
   Pencil,
   PlusCircle,
   Search,
-  Sparkles,
   Sun,
   Trash2,
   Users,
@@ -300,7 +300,7 @@ export default function DashboardPage() {
                   onClick={() => selectProfile(p)}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-saffron-600 via-saffron-700 to-saffron-800 py-2 px-2 text-xs font-bold text-white shadow-2xs transition hover:from-saffron-700 hover:to-saffron-900"
                 >
-                  <Sparkles size={14} className="text-amber-200 shrink-0" />
+                  <MessageSquareQuote size={14} className="text-amber-200 shrink-0" />
                   <span className="truncate">{t("dash.start_consult")}</span>
                 </Link>
               </div>

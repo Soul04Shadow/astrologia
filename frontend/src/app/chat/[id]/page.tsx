@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Check, ChevronLeft, Copy, Pencil, Plus, RotateCw, Sparkles, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, Copy, MessageSquareQuote, Pencil, Plus, RotateCw, Sun, Trash2, UserRound } from "lucide-react";
 import { api, type ChatMessageItem, type ChatSession, type ModelInfo, type Profile } from "@/lib/api";
 import { getSupabase } from "@/lib/auth";
 
@@ -555,7 +555,7 @@ export default function ChatPage() {
   }, [language, locale]);
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] max-w-6xl gap-4">
+    <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-6xl gap-4 overflow-x-hidden">
       {/* Session sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col rounded-xl border border-goldline bg-panel p-2 sm:flex">
         <button
@@ -585,54 +585,82 @@ export default function ChatPage() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-goldline bg-panel/60 px-1 pb-2.5 pt-1">
-          <div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        {/* Responsive Toolbar Header */}
+        <div className="flex flex-col gap-2 border-b border-goldline bg-panel/70 p-2 sm:px-3 sm:py-2">
+          {/* Top row: Title / Breadcrumb */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="hidden md:flex items-center gap-1.5 text-xs font-semibold text-stone-500 mb-0.5">
+                <Link href="/" className="hover:text-saffron-800 transition">
+                  {locale === "hi" ? "जातक" : "Horoscopes"}
+                </Link>
+                <span className="text-stone-400">/</span>
+                <Link href={`/profiles/${id}`} className="hover:text-saffron-800 transition">
+                  {profile?.name}
+                </Link>
+                <span className="text-stone-400">/</span>
+                <span className="text-saffron-900 font-bold">{locale === "hi" ? "परामर्श" : "Consultation"}</span>
+              </div>
+              <h1 className="truncate text-base font-bold text-saffron-900 sm:text-lg">
+                {t("chat.title", { name: profile?.name ?? "…" })}
+              </h1>
+            </div>
+
+            {/* Quick Chart Link for Mobile */}
             <Link
               href={`/profiles/${id}`}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold text-saffron-800 hover:bg-saffron-100 transition"
+              className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-goldline bg-panel px-2.5 py-1 text-xs font-bold text-saffron-800 hover:bg-saffron-100 transition shadow-2xs sm:hidden"
             >
-              <ArrowLeft size={14} /> {locale === "hi" ? "कुंडली देखें" : "Back to Chart"}
+              <Sun size={13} className="text-saffron-600" />
+              <span>{locale === "hi" ? "कुंडली" : "Chart"}</span>
             </Link>
-            <h1 className="text-lg font-bold">{t("chat.title", { name: profile?.name ?? "…" })}</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              className="rounded-lg border border-goldline bg-panel px-2 py-1.5 text-xs font-bold capitalize text-stone-600"
-              aria-label="AI provider"
-            >
-              {providers.map((p) => (
-                <option key={p.id} value={p.id} disabled={!p.ready}>
-                  {p.id === "cliproxy" ? "CLIProxy (Antigravity)" : p.id}
-                  {!p.ready && " · " + t("menu.nokey")}
-                </option>
-              ))}
-            </select>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="rounded-lg border border-goldline bg-panel px-2 py-1.5 text-xs font-bold text-stone-600 max-w-[220px]"
-              aria-label="Model"
-              disabled={models.length === 0}
-            >
-              {models.length === 0 ? (
-                <option value="">{model || "—"}</option>
-              ) : (
-                models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label} {m.ctx} {m.free ? "FREE" : ""} {m.tools ? "" : "· no-tools"}
+
+          {/* Controls row: Responsive wrap */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 sm:gap-2">
+              <select
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                className="max-w-[125px] sm:max-w-none rounded-lg border border-goldline bg-panel px-2 py-1.5 text-xs font-bold capitalize text-stone-600 focus:outline-hidden"
+                aria-label="AI provider"
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id} disabled={!p.ready}>
+                    {p.id === "cliproxy" ? "CLIProxy" : p.id}
+                    {!p.ready && " · " + t("menu.nokey")}
                   </option>
-                ))
-              )}
-            </select>
-            <div className="flex rounded-lg border border-goldline bg-panel p-0.5">
+                ))}
+              </select>
+
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="min-w-0 max-w-[155px] sm:max-w-[220px] truncate rounded-lg border border-goldline bg-panel px-2 py-1.5 text-xs font-bold text-stone-600 focus:outline-hidden"
+                aria-label="Model"
+                disabled={models.length === 0}
+              >
+                {models.length === 0 ? (
+                  <option value="">{model || "—"}</option>
+                ) : (
+                  models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label} {m.free ? "FREE" : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div className="flex shrink-0 rounded-lg border border-goldline bg-panel p-0.5 shadow-2xs">
               {LANGUAGES.map((l) => (
                 <button
                   key={l.id}
                   onClick={() => handleTranslate(l.id)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${language === l.id ? "bg-saffron-600 text-white" : "text-stone-600 hover:bg-saffron-100"}`}
+                  className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${
+                    language === l.id ? "bg-saffron-600 text-white shadow-2xs" : "text-stone-600 hover:bg-saffron-100"
+                  }`}
                 >
                   {l.label}
                 </button>
@@ -694,7 +722,7 @@ export default function ChatPage() {
             ) : (
               <div key={m.id} className="group flex items-start gap-2">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-700">
-                  <Sparkles size={15} />
+                  <Sun size={15} />
                 </span>
                 <div className="max-w-[88%]">
                   <div className="prose-chat rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm text-ink shadow-sm">
@@ -726,7 +754,7 @@ export default function ChatPage() {
           {(streaming || waitingFirstToken) && (
             <div className="flex items-start gap-2">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-700">
-                <Sparkles size={15} />
+                <Sun size={15} />
               </span>
               <div className="max-w-[88%] w-full">
                 {toolCalls.length > 0 && (
@@ -745,7 +773,7 @@ export default function ChatPage() {
                 {thinkingText && (
                   <details className="mb-2.5 rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-stone-700 transition" open={!streamText}>
                     <summary className="cursor-pointer font-bold text-amber-800 flex items-center gap-1.5 select-none">
-                      <Sparkles size={13} className="text-amber-600 animate-pulse" />
+                      <Sun size={13} className="text-amber-600 animate-pulse" />
                       <span>{streamText ? (locale === "hi" ? "विचार प्रक्रिया (क्लिक करें)" : "Thought process (expand)") : (locale === "hi" ? "कुंडली का विश्लेषण चल रहा है..." : "Analyzing chart & thinking...")}</span>
                     </summary>
                     <div className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-stone-600 max-h-44 overflow-y-auto pl-2 border-l-2 border-amber-300">
@@ -776,7 +804,7 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
-        <form onSubmit={send} className="flex items-end gap-2 border-t border-goldline pt-3">
+        <form onSubmit={send} className="flex items-end gap-2 border-t border-goldline pt-3 w-full max-w-full">
           <textarea
             ref={taRef}
             rows={1}
@@ -793,9 +821,9 @@ export default function ChatPage() {
             }}
             placeholder={t("chat.placeholder")}
             disabled={streaming}
-            className="max-h-[140px] flex-1 resize-none rounded-xl border border-goldline bg-panel px-4 py-3 text-sm outline-none focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100 disabled:opacity-60"
+            className="max-h-[140px] min-w-0 flex-1 resize-none rounded-xl border border-goldline bg-panel px-3 sm:px-4 py-3 text-sm outline-none focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100 disabled:opacity-60"
           />
-          <button disabled={streaming || !input.trim()} className="flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-600 px-5 text-sm font-bold text-white hover:bg-saffron-700 disabled:opacity-50">
+          <button disabled={streaming || !input.trim()} className="shrink-0 flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-600 px-4 sm:px-5 text-sm font-bold text-white hover:bg-saffron-700 disabled:opacity-50 transition shadow-2xs">
             {t("chat.send")}
           </button>
         </form>

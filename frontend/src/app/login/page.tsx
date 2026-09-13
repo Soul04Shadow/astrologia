@@ -43,14 +43,45 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-80px)] max-w-md flex-col items-center justify-center px-4 py-8">
-      <div className="w-full rounded-2xl border border-goldline bg-panel p-8 text-center shadow-lg sm:p-10">
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-saffron-600 text-2xl font-bold text-white shadow-sm">
-          ॐ
-        </span>
-        <h1 className="mt-5 text-2xl font-bold tracking-tight text-saffron-800">
-          {hi ? "वैदिक एआई ज्योतिषी" : "Vedic AI Astrologer"}
+      <div className="w-full rounded-2xl border-2 border-goldline/70 bg-panel p-8 text-center shadow-lg sm:p-10 ring-1 ring-gold/20">
+        {/* Sacred 12-spoke Solar Mandala Emblem */}
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-saffron-500 via-saffron-700 to-saffron-900 shadow-md border border-gold/40">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-10 w-10 text-amber-100"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            {/* Core Bindu & Inner Orbit */}
+            <circle cx="12" cy="12" r="4.2" className="fill-amber-400/20" stroke="currentColor" />
+            <circle cx="12" cy="12" r="1.5" className="fill-amber-300" stroke="none" />
+            {/* 12 Solar Rays / Dwadash Aditya */}
+            <line x1="12" y1="1.5" x2="12" y2="4.5" />
+            <line x1="12" y1="19.5" x2="12" y2="22.5" />
+            <line x1="1.5" y1="12" x2="4.5" y2="12" />
+            <line x1="19.5" y1="12" x2="22.5" y2="12" />
+            <line x1="4.58" y1="4.58" x2="6.7" y2="6.7" />
+            <line x1="17.3" y1="17.3" x2="19.42" y2="19.42" />
+            <line x1="4.58" y1="19.42" x2="6.7" y2="17.3" />
+            <line x1="17.3" y1="6.7" x2="19.42" y2="4.58" />
+            <line x1="12" y1="12" x2="15.8" y2="8.2" strokeOpacity="0.4" />
+            <line x1="12" y1="12" x2="8.2" y2="15.8" strokeOpacity="0.4" />
+            <line x1="12" y1="12" x2="15.8" y2="15.8" strokeOpacity="0.4" />
+            <line x1="12" y1="12" x2="8.2" y2="8.2" strokeOpacity="0.4" />
+          </svg>
+        </div>
+
+        <h1 className="mt-5 font-serif text-2xl font-bold tracking-wider text-saffron-900 uppercase">
+          {hi ? "ज्योतिष्य · ASTROLOGIA" : "ASTROLOGIA"}
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+        <p className="mt-1 text-xs font-semibold tracking-wide uppercase text-saffron-800">
+          {hi ? "वैदिक ज्योतिष एवं एआई परामर्श" : "Vedic Astrology & AI Consultation"}
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-stone-600">
           {hi
             ? "सटीक कुंडली विश्लेषण और व्यक्तिगत परामर्श के लिए Google से साइन इन करें।"
             : "Sign in with Google to explore authentic Vedic astrology consultations and Kundli calculations."}

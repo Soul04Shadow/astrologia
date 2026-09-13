@@ -11,6 +11,7 @@ import {
   Compass,
   Download,
   FileText,
+  Grid3X3,
   Image as ImageIcon,
   LayoutGrid,
   Loader2,
@@ -18,7 +19,6 @@ import {
   Printer,
   Scale,
   ScrollText,
-  Sparkles,
   Sun,
 } from "lucide-react";
 import VargaChart, { type PlacementMark } from "@/components/VargaChart";
@@ -43,7 +43,7 @@ function Card({ title, children, className = "" }: { title?: string; children: R
 const TABS = [
   { id: "d1", label: "D1 Rasi", icon: Sun },
   { id: "vargas", label: "Divisional Charts", icon: LayoutGrid },
-  { id: "ashtakavarga", label: "Ashtakavarga", icon: Sparkles },
+  { id: "ashtakavarga", label: "Ashtakavarga", icon: Grid3X3 },
   { id: "shadbala", label: "Shadbala", icon: Scale },
   { id: "transits", label: "Transits & Sade Sati", icon: Compass },
   { id: "dasha", label: "Dasha", icon: Clock3 },
@@ -278,14 +278,12 @@ export default function ChartPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <div className="mb-1">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold text-saffron-800 hover:bg-saffron-100 transition"
-            >
-              <ArrowLeft size={14} />
-              {locale === "hi" ? "सभी जातक" : "All People"}
+          <div className="mb-1 hidden md:flex items-center gap-1.5 text-xs font-semibold text-stone-500">
+            <Link href="/" className="hover:text-saffron-800 transition">
+              {locale === "hi" ? "जातक संग्रह" : "Horoscopes"}
             </Link>
+            <span className="text-stone-400">/</span>
+            <span className="text-saffron-900 font-bold">{profile.name}</span>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-3">
             <h1 className="text-xl font-bold">{profile.name}</h1>
