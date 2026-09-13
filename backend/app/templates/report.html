@@ -5,17 +5,12 @@
 <title>Vedic Astrology Consultation Dossier — {{ name }}</title>
 <style>
   @page {
-    size: A4;
+    size: A4 portrait;
     margin: 0.7cm 0.9cm 0.7cm 0.9cm;
-    @bottom-right {
-      content: "Page " counter(page);
-      font-size: 7.5pt;
-      color: #78716c;
-    }
   }
 
   body {
-    font-family: "DejaVu Sans", "Helvetica Neue", Arial, sans-serif;
+    font-family: "Helvetica", "Arial", sans-serif;
     color: #1c1917;
     font-size: 8pt;
     line-height: 1.25;
@@ -52,7 +47,7 @@
     margin: 1pt 0 0 0;
   }
 
-  /* Box & Card Container */
+  /* Section Titles */
   .section-title {
     font-size: 8.5pt;
     font-weight: bold;
@@ -65,6 +60,7 @@
     letter-spacing: 0.4px;
   }
 
+  /* Metadata Box */
   .meta-box {
     width: 100%;
     border-collapse: collapse;
@@ -194,7 +190,6 @@
     padding: 0.5pt 3pt;
     font-size: 6.5pt;
     font-weight: bold;
-    border-radius: 2pt;
   }
 
   /* Page break rules */
@@ -245,30 +240,30 @@
 
   <!-- Header -->
   <div class="header-wrap">
-    <div class="sacred-invocation">॥ श्री गणेशाय नमः ॥</div>
-    <div class="doc-title">Vedic Horoscope & Kundli Dossier</div>
-    <div class="doc-subtitle">जातक जन्म पत्रिका व ज्योतिषीय प्रतिवेदन · High-Precision Astrological Dossier</div>
+    <div class="sacred-invocation">OM SHRI GANESHAYA NAMAHA</div>
+    <div class="doc-title">Vedic Horoscope &amp; Kundli Dossier</div>
+    <div class="doc-subtitle">Natal Chart Report &middot; High-Precision Astrological Analysis</div>
   </div>
 
   <!-- Birth & Planetary Metadata -->
   <table class="meta-box">
     <tr>
-      <td class="meta-label">Native Name (जातक):</td>
+      <td class="meta-label">Native Name:</td>
       <td class="meta-val"><b>{{ name }}</b></td>
-      <td class="meta-label">Date of Birth (जन्म तिथि):</td>
+      <td class="meta-label">Date of Birth:</td>
       <td class="meta-val"><b>{{ birth.date }}</b></td>
     </tr>
     <tr>
-      <td class="meta-label">Birth Time (समय):</td>
+      <td class="meta-label">Birth Time:</td>
       <td class="meta-val">{{ birth.time }} ({{ birth.tz_name }})</td>
-      <td class="meta-label">Birth Place (स्थान):</td>
+      <td class="meta-label">Birth Place:</td>
       <td class="meta-val">{% if place_name %}<b>{{ place_name }}</b>{% else %}Coordinates{% endif %}</td>
     </tr>
     <tr>
-      <td class="meta-label">Coordinates (अक्षांश/रेखांश):</td>
+      <td class="meta-label">Coordinates:</td>
       <td class="meta-val">{{ lat_str }}, {{ lon_str }}</td>
-      <td class="meta-label">Ayanamsa & Engine:</td>
-      <td class="meta-val">Lahiri (Chitra Paksha) · Swiss Ephemeris</td>
+      <td class="meta-label">Ayanamsa &amp; Engine:</td>
+      <td class="meta-val">Lahiri (Chitra Paksha) &middot; Swiss Ephemeris</td>
     </tr>
     <tr>
       <td class="meta-label">Generated On:</td>
@@ -282,27 +277,27 @@
   <table class="pillars-table">
     <tr>
       <td class="pillar-cell">
-        <div class="pillar-title">Lagna / Ascendant (लग्न)</div>
+        <div class="pillar-title">Lagna / Ascendant</div>
         <div class="pillar-val">{{ lagna.sign }}</div>
-        <div class="pillar-sub">{{ lagna.degree }}<br/>Lord: <b>{{ lagna.lord }}</b><br/>Sub: <b>{{ lagna.sublord or lagna.nakshatra.sublord or '—' }}</b></div>
+        <div class="pillar-sub">{{ lagna.degree }}<br/>Lord: <b>{{ lagna.lord }}</b><br/>Sub: <b>{{ lagna.sublord or lagna.nakshatra.sublord or '-' }}</b></div>
       </td>
       <td class="pillar-cell">
-        <div class="pillar-title">Moon Rashi (चंद्र राशि)</div>
+        <div class="pillar-title">Moon Rashi</div>
         <div class="pillar-val">{{ moon.sign }}</div>
-        <div class="pillar-sub">Nakshatra: <b>{{ moon.nakshatra }}</b><br/>Pada: <b>{{ moon.pada }}</b> (Lord: {{ moon.nakshatra_lord }})<br/>Sub: <b>{{ moon.sublord or '—' }}</b></div>
+        <div class="pillar-sub">Nakshatra: <b>{{ moon.nakshatra }}</b><br/>Pada: <b>{{ moon.pada }}</b> (Lord: {{ moon.nakshatra_lord }})<br/>Sub: <b>{{ moon.sublord or '-' }}</b></div>
       </td>
       <td class="pillar-cell">
-        <div class="pillar-title">Running Dasha (दशा)</div>
-        <div class="pillar-val">{{ current_maha.lord or '—' }} / {{ current_antar.lord or '—' }}</div>
+        <div class="pillar-title">Running Dasha</div>
+        <div class="pillar-val">{{ current_maha.lord or '-' }} / {{ current_antar.lord or '-' }}</div>
         <div class="pillar-sub">Maha: <b>{{ current_maha.lord }}</b> (to {{ current_maha.end_date }})<br/>Antar: <b>{{ current_antar.lord }}</b> ({% if current_antar %}{{ current_antar.start_date }} - {{ current_antar.end_date }}{% endif %})</div>
       </td>
       <td class="pillar-cell">
-        <div class="pillar-title">Birth Panchang (पञ्चाङ्ग)</div>
+        <div class="pillar-title">Birth Panchang</div>
         <div class="pillar-val">{% if panchang and panchang.weekday %}{{ panchang.weekday }}{% else %}Vedic Day{% endif %}</div>
         <div class="pillar-sub">
           {% if panchang and panchang.tithi %}
             Tithi: <b>{{ panchang.tithi.name }} ({{ panchang.tithi.paksha }})</b><br/>
-            Yoga: <b>{{ panchang.yoga.name }}</b> · Karana: <b>{{ panchang.karana.name }}</b>
+            Yoga: <b>{{ panchang.yoga.name }}</b> &middot; Karana: <b>{{ panchang.karana.name }}</b>
           {% else %}
             Vaar Lord: <b>{{ lagna.lord }}</b><br/>Surya Rasi: <b>Vedic Solar</b>
           {% endif %}
@@ -315,14 +310,14 @@
   <table class="charts-table keep-together">
     <tr>
       <td class="chart-col">
-        <div class="chart-heading">D1 Rasi Kundli (लग्न / राशि कुण्डली)</div>
+        <div class="chart-heading">D1 Rasi Kundli (Birth Chart)</div>
         <img src="{{ d1_png }}" class="chart-img" />
-        <div class="chart-legend">Numbers indicate Rashis (1=Aries … 12=Pisces) · * Exalted · R Retrograde</div>
+        <div class="chart-legend">Numbers indicate Rashis (1=Aries ... 12=Pisces) &middot; * Exalted &middot; R Retrograde</div>
       </td>
       <td class="chart-col">
-        <div class="chart-heading">D9 Navamsha Kundli (नवमांश कुण्डली)</div>
+        <div class="chart-heading">D9 Navamsha Kundli (Dharma Chart)</div>
         <img src="{{ d9_png }}" class="chart-img" />
-        <div class="chart-legend">Dharma & Fortune Chart · Asc = Navamsha Lagna · * Vargottama</div>
+        <div class="chart-legend">Dharma &amp; Fortune Chart &middot; Asc = Navamsha Lagna &middot; * Vargottama</div>
       </td>
     </tr>
   </table>
@@ -331,14 +326,14 @@
 
   <!-- Planetary Positions & KP Sublords Table -->
   <div class="keep-together">
-    <div class="section-title">Planetary Positions & KP Sublords (ग्रह स्पष्ट स्थिति व उपस्वामी)</div>
+    <div class="section-title">Planetary Positions &amp; KP Sublords</div>
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width: 14%;">Body (ग्रह)</th>
-          <th style="width: 12%;">Sign (राशि)</th>
+          <th style="width: 14%;">Body</th>
+          <th style="width: 12%;">Sign</th>
           <th style="width: 11%;">Sign Lord</th>
-          <th style="width: 14%;">Longitude (° ' ")</th>
+          <th style="width: 14%;">Longitude</th>
           <th style="width: 7%;">House</th>
           <th style="width: 16%;">Nakshatra (Pada)</th>
           <th style="width: 10%;">Nak Lord</th>
@@ -352,7 +347,7 @@
           <td><b>{{ r.planet }}</b></td>
           <td>{{ r.sign }}</td>
           <td>{{ r.sign_lord }}</td>
-          <td><code>{{ r.degree }}</code></td>
+          <td>{{ r.degree }}</td>
           <td style="text-align: center;"><b>{{ r.house }}</b></td>
           <td>{{ r.nakshatra }}</td>
           <td>{{ r.nak_lord }}</td>
@@ -366,7 +361,7 @@
 
   <!-- Vimshottari Mahadasha Timeline -->
   <div class="keep-together">
-    <div class="section-title">Vimshottari Dasha Sequence (विंशोत्तरी दशा क्रम)</div>
+    <div class="section-title">Vimshottari Dasha Sequence</div>
     <table class="data-table">
       <thead>
         <tr>
@@ -384,9 +379,9 @@
           <td>{{ m.end_date }}</td>
           <td>
             {% if current_maha and m.lord == current_maha.lord and m.start_date == current_maha.start_date %}
-              <span class="status-active">ACTIVE / चालू</span>
+              <span class="status-active">ACTIVE</span>
             {% else %}
-              —
+              -
             {% endif %}
           </td>
         </tr>
@@ -398,12 +393,12 @@
   <!-- Detected Astrological Yogas -->
   {% if yogas %}
   <div class="keep-together">
-    <div class="section-title">Detected Astrological Yogas (प्रमुख ग्रह योग)</div>
+    <div class="section-title">Detected Astrological Yogas</div>
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width: 32%;">Yoga Name (योग नाम)</th>
-          <th style="width: 68%;">Astrological Basis & Impact (शास्त्रीय आधार)</th>
+          <th style="width: 32%;">Yoga Name</th>
+          <th style="width: 68%;">Astrological Basis &amp; Significance</th>
         </tr>
       </thead>
       <tbody>
@@ -421,7 +416,7 @@
   <!-- Sarvashtakavarga (SAV) Summary if present -->
   {% if ashtakavarga and ashtakavarga.house_strengths %}
   <div class="keep-together">
-    <div class="section-title">Sarvashtakavarga House Bindus (सर्वाष्टकवर्ग बिन्दु)</div>
+    <div class="section-title">Sarvashtakavarga House Bindus (SAV)</div>
     <table class="data-table" style="text-align: center;">
       <thead>
         <tr>
@@ -436,7 +431,7 @@
           {% for h in range(1, 13) %}
           {% set hs = ashtakavarga.house_strengths.get(h) or ashtakavarga.house_strengths.get(h|string) %}
           <td style="font-weight:bold; {% if hs and hs.points >= 30 %}background-color:#dcfce7; color:#15803d;{% elif hs and hs.points < 25 %}background-color:#fee2e2; color:#b91c1c;{% endif %}">
-            {% if hs %}{{ hs.points }}{% else %}—{% endif %}
+            {% if hs %}{{ hs.points }}{% else %}-{% endif %}
           </td>
           {% endfor %}
           <td style="font-weight:bold; background-color:#ffedd5; color:#9a3412;">{{ ashtakavarga.total_bindus or 337 }}</td>
@@ -444,16 +439,16 @@
       </tbody>
     </table>
     <div style="font-size:7.5pt; color:#78716c; margin-top:-4pt; margin-bottom:6pt;">
-      Standard benchmark: 28 Bindus per house. Green indicates strong houses (≥30 pts), red indicates sensitive houses (&lt;25 pts).
+      Benchmark: 28 Bindus per house. Green indicates strong houses (&gt;=30), red indicates sensitive houses (&lt;25).
     </div>
   </div>
   {% endif %}
 
   <!-- Astrologer Consultation & Remedies Section -->
   <div class="keep-together consultation-box">
-    <div class="consultation-header">Astrological Consultation & Guidance Notes (परामर्श व उपाय टिप्पणी)</div>
+    <div class="consultation-header">Astrological Consultation &amp; Guidance Notes</div>
     <div style="font-size: 8pt; color: #78716c; min-height: 48pt;">
-      <i>Space reserved for personal consultation remarks, favorable gemstone (रत्न), beneficial mantra (मंत्र), charity & remedies (दान व उपाय) advised by the consulting astrologer:</i>
+      <i>Space reserved for personal consultation remarks, favorable gemstone (Ratna), beneficial mantra, and remedies advised by the consulting astrologer:</i>
       <div style="border-bottom: 0.5pt dotted #fdba74; margin-top: 14pt;"></div>
       <div style="border-bottom: 0.5pt dotted #fdba74; margin-top: 14pt;"></div>
       <div style="border-bottom: 0.5pt dotted #fdba74; margin-top: 14pt;"></div>
@@ -462,7 +457,7 @@
 
   <!-- Document Footer -->
   <div class="footer-note">
-    Confidential Vedic Astrological Consultation Report · Calculated using Swiss Ephemeris (Lahiri Sidereal Ayanamsa) · © {{ name }} Natal Chart
+    Confidential Vedic Astrological Consultation Report &middot; Calculated using Swiss Ephemeris (Lahiri Sidereal Ayanamsa) &middot; Natal Chart Dossier
   </div>
 
 </body>

@@ -96,14 +96,25 @@ export default function ChartPage() {
       }
       const blob = await res.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
+      const safeName = (profile?.name || "kundli").replace(/[^a-zA-Z0-9_\-\u0900-\u097F]/g, "_");
+      const filename = `Kundli_${safeName}_${chart?.birth_details?.date || "report"}.pdf`;
+
       const a = document.createElement("a");
       a.href = downloadUrl;
-      const safeName = (profile?.name || "kundli").replace(/[^a-zA-Z0-9_\-\u0900-\u097F]/g, "_");
-      a.download = `Kundli_${safeName}_${chart?.birth_details?.date || "report"}.pdf`;
+      a.download = filename;
+      a.target = "_blank";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+
+      // Mobile Safari/Chrome delayed cleanup to ensure download starts cleanly
+      setTimeout(() => {
+        try {
+          window.URL.revokeObjectURL(downloadUrl);
+        } catch {
+          // Ignore
+        }
+      }, 60000);
     } catch (err: any) {
       alert(err?.message || "Failed to download PDF report");
     } finally {

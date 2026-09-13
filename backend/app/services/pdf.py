@@ -139,10 +139,13 @@ def render_report_pdf(chart: dict, profile_name: str, place_name: str | None = N
         except OSError:
             pass
 
+    import re
     from xhtml2pdf import pisa
 
+    # Extra defensive cleanup: strip any nested @bottom-right or similar at-rules xhtml2pdf parser fails on
+    clean_html = re.sub(r"@[a-z\-]+\s*\{[^}]*\}", "", html)
     buf = io.BytesIO()
-    status = pisa.CreatePDF(html, dest=buf, encoding="utf-8")
+    status = pisa.CreatePDF(clean_html, dest=buf, encoding="utf-8")
     if status.err:
         raise RuntimeError(f"PDF generation failed with {status.err} errors")
     return buf.getvalue()
