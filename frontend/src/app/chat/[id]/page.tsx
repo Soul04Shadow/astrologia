@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, ChevronLeft, Copy, Pencil, Plus, RotateCw, Sparkles, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, Copy, Pencil, Plus, RotateCw, Sparkles, Trash2, UserRound } from "lucide-react";
 import { api, type ChatMessageItem, type ChatSession, type ModelInfo, type Profile } from "@/lib/api";
 import { getSupabase } from "@/lib/auth";
 
@@ -84,6 +84,7 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const activeStreamReaderRef = useRef<AbortController | null>(null);
+  const sessionMessagesCache = useRef<Record<string, ChatMessageItem[]>>({});
 
   // cleanup in-flight stream reader on unmount
   useEffect(() => {
@@ -262,9 +263,16 @@ export default function ChatPage() {
     setStreaming(false);
     setWaitingFirstToken(false);
 
+    if (sessionMessagesCache.current[activeSessionId]) {
+      setMessages(sessionMessagesCache.current[activeSessionId]);
+    }
+
     api
       .sessionHistory(id, activeSessionId)
-      .then((h) => setMessages(h))
+      .then((h) => {
+        sessionMessagesCache.current[activeSessionId] = h;
+        setMessages(h);
+      })
       .catch((e) => setError(String(e)));
 
     // Check if stream is currently active in background for this session
@@ -356,16 +364,19 @@ export default function ChatPage() {
   }
 
   function handleSelectSession(sid: number) {
-    if (String(sid) === activeSessionId) return;
+    const sidStr = String(sid);
+    if (sidStr === activeSessionId) return;
     activeStreamReaderRef.current?.abort();
     setStreamText("");
     setThinkingText("");
     setWaitingFirstToken(false);
     setStreaming(false);
     setToolCalls([]);
-    setMessages([]);
+    if (sessionMessagesCache.current[sidStr]) {
+      setMessages(sessionMessagesCache.current[sidStr]);
+    }
     setError("");
-    setActiveSessionId(String(sid));
+    setActiveSessionId(sidStr);
     router.push(`/chat/${id}?s=${sid}`);
   }
 
@@ -507,7 +518,10 @@ export default function ChatPage() {
 
       // Reload fresh messages from DB to get the saved assistant message
       if (sid === activeSessionId) {
-        api.sessionHistory(id, sid).then(setMessages).catch(() => {});
+        api.sessionHistory(id, sid).then((h) => {
+          sessionMessagesCache.current[sid] = h;
+          setMessages(h);
+        }).catch(() => {});
         api.listSessions(id).then(setSessions).catch(() => {});
       }
     } catch (err: any) {
@@ -574,8 +588,11 @@ export default function ChatPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-goldline bg-panel/60 px-1 pb-2.5 pt-1">
           <div>
-            <Link href={`/profiles/${id}`} className="flex items-center gap-0.5 text-xs font-semibold text-saffron-700 hover:underline">
-              <ChevronLeft size={13} /> {t("chat.back")}
+            <Link
+              href={`/profiles/${id}`}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold text-saffron-800 hover:bg-saffron-100 transition"
+            >
+              <ArrowLeft size={14} /> {locale === "hi" ? "कुंडली देखें" : "Back to Chart"}
             </Link>
             <h1 className="text-lg font-bold">{t("chat.title", { name: profile?.name ?? "…" })}</h1>
           </div>

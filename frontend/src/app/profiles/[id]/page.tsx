@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   Clock3,
   CloudSun,
@@ -12,6 +13,7 @@ import {
   FileText,
   Image as ImageIcon,
   LayoutGrid,
+  Pencil,
   Scale,
   ScrollText,
   Sparkles,
@@ -206,6 +208,15 @@ export default function ChartPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
+          <div className="mb-1">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold text-saffron-800 hover:bg-saffron-100 transition"
+            >
+              <ArrowLeft size={14} />
+              {locale === "hi" ? "सभी जातक" : "All People"}
+            </Link>
+          </div>
           <div className="flex flex-wrap items-baseline gap-x-3">
             <h1 className="text-xl font-bold">{profile.name}</h1>
             <span className="text-sm font-semibold tabular-nums text-saffron-800">
@@ -216,16 +227,22 @@ export default function ChartPage() {
             </span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/profiles/${id}/edit`}
+            className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-3 py-2 text-xs font-bold text-stone-700 hover:bg-saffron-100 transition shadow-sm"
+          >
+            <Pencil size={14} /> {locale === "hi" ? "संशोधित करें" : "Edit Details"}
+          </Link>
           <a
             href={`${api.base}/api/profiles/${id}/report.pdf`}
-            className="flex items-center gap-1.5 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white hover:bg-saffron-700"
+            className="flex items-center gap-1.5 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white hover:bg-saffron-700 transition shadow-sm"
           >
             <FileText size={14} /> {t("chart.pdf")}
           </a>
           <Link
             href={`/chat/${id}`}
-            className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-3 py-2 text-xs font-bold text-saffron-800 hover:bg-saffron-100"
+            className="flex items-center gap-1.5 rounded-lg border border-goldline bg-panel px-3 py-2 text-xs font-bold text-saffron-800 hover:bg-saffron-100 transition shadow-sm"
           >
             {t("chart.consult")} <ArrowRight size={14} />
           </Link>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth, authEnabled } from "@/lib/auth";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 interface ProviderInfo {
   id: string;
@@ -83,6 +85,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const readyCount = providers.filter((p) => p.ready).length;
+
+  const isSubpage = pathname !== "/" && pathname !== "/login";
+  let pageTitle = "";
+  if (pathname === "/") pageTitle = locale === "hi" ? "जातक सूची" : "People";
+  else if (pathname === "/profiles/new") pageTitle = locale === "hi" ? "नई कुंडली" : "New Kundli";
+  else if (pathname.includes("/edit")) pageTitle = locale === "hi" ? "संशोधन" : "Edit Profile";
+  else if (pathname.startsWith("/chat/")) pageTitle = locale === "hi" ? "एआई परामर्श" : "Consultation";
+  else if (pathname.startsWith("/profiles/")) pageTitle = locale === "hi" ? "जन्म कुंडली" : "Kundli Chart";
 
   if (authEnabled && authLoading) {
     return (
@@ -204,14 +214,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className={`transition-all duration-200 ${collapsed ? "md:pl-[68px]" : "md:pl-60"}`}>
         <header className="sticky top-0 z-30 border-b border-goldline bg-cream/90 backdrop-blur">
-          <div className="flex items-center gap-2 px-4 py-2.5 sm:px-6">
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="rounded-lg p-2 text-saffron-800 hover:bg-saffron-100 md:hidden"
-              aria-label="Open menu"
-            >
-              <Menu size={19} />
-            </button>
+          <div className="flex items-center gap-2 px-3 py-2.5 sm:px-6">
+            {isSubpage ? (
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-1 rounded-lg p-2 text-saffron-800 hover:bg-saffron-100 transition"
+                aria-label={locale === "hi" ? "वापस जाएँ" : "Back"}
+                title={locale === "hi" ? "वापस जाएँ" : "Back"}
+              >
+                <ArrowLeft size={19} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="rounded-lg p-2 text-saffron-800 hover:bg-saffron-100 md:hidden"
+                aria-label="Open menu"
+              >
+                <Menu size={19} />
+              </button>
+            )}
+
+            <span className="truncate text-sm font-bold text-saffron-900 md:hidden">
+              {pageTitle}
+            </span>
+            <span className="hidden md:inline-block truncate text-xs font-semibold text-stone-500">
+              {pageTitle}
+            </span>
 
             <div className="ml-auto flex items-center gap-2" ref={menuRef}>
               <button
@@ -292,7 +320,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto max-w-6xl px-3 py-5 sm:px-6">{children}</main>
+        <main className="mx-auto max-w-6xl px-3 py-5 pb-24 md:pb-8 sm:px-6">{children}</main>
+        <MobileBottomNav />
       </div>
     </div>
   );

@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type Profile } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { useAuth, authEnabled } from "@/lib/auth";
 
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { session, loading: authLoading } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState("");
@@ -82,6 +82,14 @@ export default function DashboardPage() {
               >
                 {t("dash.consult")}
               </Link>
+              <Link
+                href={`/profiles/${p.id}/edit`}
+                className="rounded-lg border border-goldline px-2.5 py-1.5 text-stone-600 hover:bg-saffron-100 transition"
+                title={locale === "hi" ? "संशोधित करें" : "Edit Details"}
+                aria-label="Edit profile"
+              >
+                <Pencil size={14} />
+              </Link>
               <button
                 onClick={async () => {
                   if (confirm(t("dash.delete_q", { name: p.name }))) {
@@ -89,7 +97,7 @@ export default function DashboardPage() {
                     setProfiles((prev) => prev.filter((x) => x.id !== p.id));
                   }
                 }}
-                className="rounded-lg border border-goldline px-2.5 py-1.5 text-stone-500 hover:bg-saffron-100"
+                className="rounded-lg border border-goldline px-2.5 py-1.5 text-stone-500 hover:bg-red-50 hover:text-red-600 transition"
                 aria-label={t("dash.delete_a")}
               >
                 <X size={14} />

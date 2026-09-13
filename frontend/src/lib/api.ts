@@ -1,3 +1,5 @@
+import { memoryCache } from "@/lib/cache";
+
 export interface NakshatraInfo {
   name: string;
   lord: string;
@@ -230,25 +232,71 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
 
 export const api = {
   base: BASE,
-  listProfiles: () => apiFetch(`${BASE}/api/profiles`).then((r) => jsonOrThrow<Profile[]>(r)),
-  getProfile: (id: number | string) =>
-    apiFetch(`${BASE}/api/profiles/${id}`).then((r) => jsonOrThrow<Profile>(r)),
-  createProfile: (payload: Omit<Profile, "id" | "created_at">) =>
-    apiFetch(`${BASE}/api/profiles`, {
+  listProfiles: async (forceRefresh: boolean = false): Promise<Profile[]> => {
+    const key = "profiles:list";
+    if (!forceRefresh) {
+      const cached = memoryCache.get<Profile[]>(key);
+      if (cached) return cached;
+    }
+    const data = await apiFetch(`${BASE}/api/profiles`).then((r) => jsonOrThrow<Profile[]>(r));
+    memoryCache.set(key, data, 120);
+    return data;
+  },
+  getProfile: async (id: number | string, forceRefresh: boolean = false): Promise<Profile> => {
+    const key = `profile:${id}`;
+    if (!forceRefresh) {
+      const cached = memoryCache.get<Profile>(key);
+      if (cached) return cached;
+    }
+    const data = await apiFetch(`${BASE}/api/profiles/${id}`).then((r) => jsonOrThrow<Profile>(r));
+    memoryCache.set(key, data, 180);
+    return data;
+  },
+  createProfile: async (payload: Omit<Profile, "id" | "created_at">): Promise<Profile> => {
+    const data = await apiFetch(`${BASE}/api/profiles`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }).then((r) => jsonOrThrow<Profile>(r)),
-  deleteProfile: (id: number) =>
-    apiFetch(`${BASE}/api/profiles/${id}`, { method: "DELETE" }).then((r) => r.json()),
+    }).then((r) => jsonOrThrow<Profile>(r));
+    memoryCache.delete("profiles:list");
+    memoryCache.set(`profile:${data.id}`, data, 180);
+    return data;
+  },
+  updateProfile: async (id: number | string, payload: Omit<Profile, "id" | "created_at">): Promise<Profile> => {
+    const data = await apiFetch(`${BASE}/api/profiles/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((r) => jsonOrThrow<Profile>(r));
+    memoryCache.delete("profiles:list");
+    memoryCache.delete(`chart:${id}`);
+    memoryCache.set(`profile:${id}`, data, 180);
+    return data;
+  },
+  deleteProfile: async (id: number) => {
+    const res = await apiFetch(`${BASE}/api/profiles/${id}`, { method: "DELETE" }).then((r) => r.json());
+    memoryCache.delete("profiles:list");
+    memoryCache.delete(`profile:${id}`);
+    memoryCache.delete(`chart:${id}`);
+    memoryCache.delete(`sessions:${id}`);
+    return res;
+  },
   geocode: (q: string) =>
     apiFetch(`${BASE}/api/geocode?q=${encodeURIComponent(q)}`).then((r) =>
       jsonOrThrow<{ results: PlaceResult[] }>(r),
     ),
-  getChart: (id: number | string) =>
-    apiFetch(`${BASE}/api/charts/${id}`).then((r) =>
+  getChart: async (id: number | string, forceRefresh: boolean = false): Promise<{ profile: { id: number; name: string }; chart: Chart }> => {
+    const key = `chart:${id}`;
+    if (!forceRefresh) {
+      const cached = memoryCache.get<{ profile: { id: number; name: string }; chart: Chart }>(key);
+      if (cached) return cached;
+    }
+    const data = await apiFetch(`${BASE}/api/charts/${id}`).then((r) =>
       jsonOrThrow<{ profile: { id: number; name: string }; chart: Chart }>(r),
-    ),
+    );
+    memoryCache.set(key, data, 600); // deterministic natal chart, cache for 10 min
+    return data;
+  },
   previewChart: (payload: Omit<Profile, "id" | "created_at"> & { name: string }) =>
     apiFetch(`${BASE}/api/charts/preview`, {
       method: "POST",
@@ -283,8 +331,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, target_language, provider: provider ?? null }),
     }).then((r) => jsonOrThrow<{ translated: string }>(r)),
-  listModels: (provider?: string) => {
+  listModels: async (provider?: string): Promise<ModelInfo[]> => {
+    const key = `models:${provider ?? "all"}`;
+    const cached = memoryCache.get<ModelInfo[]>(key);
+    if (cached) return cached;
     const url = provider ? `${BASE}/api/models?provider=${encodeURIComponent(provider)}` : `${BASE}/api/models`;
-    return fetch(url).then((r) => jsonOrThrow<ModelInfo[]>(r));
+    const data = await fetch(url).then((r) => jsonOrThrow<ModelInfo[]>(r));
+    memoryCache.set(key, data, 300);
+    return data;
   },
 };
