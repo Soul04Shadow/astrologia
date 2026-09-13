@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, Clock } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
@@ -30,7 +30,7 @@ export default function BirthDateTimePicker({
   const { locale } = useI18n();
   const months = locale === "hi" ? MONTHS_HI : MONTHS_EN;
 
-  // Internal local states allowing empty string while typing
+  // Local input string states
   const [yearStr, setYearStr] = useState("1995");
   const [monthStr, setMonthStr] = useState("01");
   const [dayStr, setDayStr] = useState("01");
@@ -40,14 +40,47 @@ export default function BirthDateTimePicker({
   const [minuteStr, setMinuteStr] = useState("00");
   const [period, setPeriod] = useState<"AM" | "PM">("AM");
 
-  // Track the last values emitted to parent to prevent re-entrant echo loops
+  // Track latest emitted values to prevent self-triggered parent re-sync loops
   const lastEmittedDateRef = useRef("");
   const lastEmittedTimeRef = useRef("");
 
-  // Sync internal state with props ONLY when changed externally
+  // Keep refs of current values to ensure blur handlers always see current data
+  const hourRef = useRef(hourStr);
+  const minuteRef = useRef(minuteStr);
+  const periodRef = useRef(period);
+  const is12ModeRef = useRef(is12HourMode);
+
+  const dayRef = useRef(dayStr);
+  const monthRef = useRef(monthStr);
+  const yearRef = useRef(yearStr);
+
+  useEffect(() => {
+    hourRef.current = hourStr;
+  }, [hourStr]);
+  useEffect(() => {
+    minuteRef.current = minuteStr;
+  }, [minuteStr]);
+  useEffect(() => {
+    periodRef.current = period;
+  }, [period]);
+  useEffect(() => {
+    is12ModeRef.current = is12HourMode;
+  }, [is12HourMode]);
+
+  useEffect(() => {
+    dayRef.current = dayStr;
+  }, [dayStr]);
+  useEffect(() => {
+    monthRef.current = monthStr;
+  }, [monthStr]);
+  useEffect(() => {
+    yearRef.current = yearStr;
+  }, [yearStr]);
+
+  // Sync internal state with props ONLY when changed externally (not from this component)
   useEffect(() => {
     if (dateValue && dateValue === lastEmittedDateRef.current) {
-      return; // Skip re-entrant loop triggered by self
+      return;
     }
     if (dateValue && dateValue.includes("-")) {
       const parts = dateValue.split("-");
@@ -61,7 +94,7 @@ export default function BirthDateTimePicker({
 
   useEffect(() => {
     if (timeValue && timeValue === lastEmittedTimeRef.current) {
-      return; // Skip re-entrant loop triggered by self
+      return;
     }
     if (timeValue && timeValue.includes(":")) {
       const [h, m] = timeValue.split(":");
@@ -80,7 +113,7 @@ export default function BirthDateTimePicker({
     }
   }, [timeValue, is12HourMode]);
 
-  // Year list from current down to 1920
+  // Quick Year options from current year down to 1920
   const currentYear = new Date().getFullYear();
   const yearOptions = useMemo(() => {
     const list: number[] = [];
@@ -90,7 +123,7 @@ export default function BirthDateTimePicker({
     return list;
   }, [currentYear]);
 
-  // Emit formatted date YYYY-MM-DD only when complete & valid
+  // Emit formatted date YYYY-MM-DD
   function emitDate(y: string, m: string, d: string) {
     const cleanY = y.trim();
     const cleanM = m.trim();
@@ -107,9 +140,9 @@ export default function BirthDateTimePicker({
     }
   }
 
-  // Emit formatted time HH:MM (24-hour) only when complete
+  // Emit formatted time HH:MM (24-hour)
   function emitTime(h: string, m: string, p: "AM" | "PM", mode12: boolean) {
-    if (h.trim() === "" || m.trim() === "") return; // Don't emit incomplete inputs
+    if (!h.trim() || !m.trim()) return;
     let numH = parseInt(h, 10);
     let numM = parseInt(m, 10);
     if (isNaN(numH) || isNaN(numM)) return;
@@ -119,8 +152,7 @@ export default function BirthDateTimePicker({
 
     let finalH = 0;
     if (mode12) {
-      if (numH > 12) numH = 12;
-      if (numH < 1) numH = 12;
+      numH = Math.min(12, Math.max(1, numH));
       finalH = numH;
       if (p === "PM" && numH !== 12) finalH = numH + 12;
       if (p === "AM" && numH === 12) finalH = 0;
@@ -131,11 +163,6 @@ export default function BirthDateTimePicker({
     lastEmittedTimeRef.current = formattedTime;
     onTimeChange(formattedTime);
   }
-
-  // Element refs for keyboard jump
-  const monthRef = useRef<HTMLSelectElement>(null);
-  const yearRef = useRef<HTMLInputElement>(null);
-  const minRef = useRef<HTMLInputElement>(null);
 
   const inputStyle =
     "w-full rounded-lg border border-goldline bg-panel px-2.5 py-2 text-center text-sm font-semibold tabular-nums outline-none transition focus:border-saffron-600 focus:ring-2 focus:ring-saffron-100";
@@ -155,7 +182,7 @@ export default function BirthDateTimePicker({
         </div>
 
         <div className="grid grid-cols-12 gap-2">
-          {/* Day */}
+          {/* Day Input */}
           <div className="col-span-3 sm:col-span-3">
             <label className="mb-1 block text-[10px] font-bold text-stone-600">
               {locale === "hi" ? "दिन (DD)" : "Day (DD)"}
@@ -171,22 +198,23 @@ export default function BirthDateTimePicker({
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, "").slice(0, 2);
                 setDayStr(val);
-                if (val !== "") {
-                  emitDate(yearStr, monthStr, val);
-                  if (val.length === 2 && monthRef.current) {
-                    monthRef.current.focus();
+                if (val.length === 2) {
+                  let num = parseInt(val, 10);
+                  if (!isNaN(num) && num >= 1 && num <= 31) {
+                    emitDate(yearRef.current, monthRef.current, String(num).padStart(2, "0"));
                   }
                 }
               }}
-              onBlur={() => {
-                if (!dayStr) {
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/\D/g, "").trim();
+                if (!raw) {
                   setDayStr("01");
-                  emitDate(yearStr, monthStr, "01");
+                  emitDate(yearRef.current, monthRef.current, "01");
                 } else {
-                  const num = Math.min(31, Math.max(1, parseInt(dayStr, 10) || 1));
+                  const num = Math.min(31, Math.max(1, parseInt(raw, 10) || 1));
                   const padded = String(num).padStart(2, "0");
                   setDayStr(padded);
-                  emitDate(yearStr, monthStr, padded);
+                  emitDate(yearRef.current, monthRef.current, padded);
                 }
               }}
               className={inputStyle}
@@ -200,13 +228,11 @@ export default function BirthDateTimePicker({
               {locale === "hi" ? "माह (MM)" : "Month"}
             </label>
             <select
-              ref={monthRef}
               value={monthStr}
               onChange={(e) => {
                 const val = e.target.value;
                 setMonthStr(val);
-                emitDate(yearStr, val, dayStr || "01");
-                if (yearRef.current) yearRef.current.focus();
+                emitDate(yearRef.current, val, dayRef.current || "01");
               }}
               className={`${inputStyle} text-left px-2`}
               aria-label="Month"
@@ -234,7 +260,7 @@ export default function BirthDateTimePicker({
                   const val = e.target.value;
                   if (val) {
                     setYearStr(val);
-                    emitDate(val, monthStr, dayStr || "01");
+                    emitDate(val, monthRef.current, dayRef.current || "01");
                   }
                 }}
                 className="text-[10px] text-saffron-700 bg-transparent border-0 font-bold cursor-pointer hover:underline"
@@ -249,7 +275,6 @@ export default function BirthDateTimePicker({
               </select>
             </div>
             <input
-              ref={yearRef}
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
@@ -261,14 +286,24 @@ export default function BirthDateTimePicker({
                 const val = e.target.value.replace(/\D/g, "").slice(0, 4);
                 setYearStr(val);
                 if (val.length === 4) {
-                  emitDate(val, monthStr, dayStr || "01");
+                  let num = parseInt(val, 10);
+                  if (!isNaN(num) && num >= 1900 && num <= 2100) {
+                    emitDate(val, monthRef.current, dayRef.current || "01");
+                  }
                 }
               }}
-              onBlur={() => {
-                if (yearStr.length < 4) {
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/\D/g, "").trim();
+                if (raw.length < 4) {
                   const fallbackYear = String(new Date().getFullYear() - 30);
                   setYearStr(fallbackYear);
-                  emitDate(fallbackYear, monthStr, dayStr || "01");
+                  emitDate(fallbackYear, monthRef.current, dayRef.current || "01");
+                } else {
+                  let num = parseInt(raw, 10);
+                  if (isNaN(num) || num < 1900 || num > 2100) num = 1995;
+                  const clean = String(num);
+                  setYearStr(clean);
+                  emitDate(clean, monthRef.current, dayRef.current || "01");
                 }
               }}
               className={inputStyle}
@@ -317,13 +352,13 @@ export default function BirthDateTimePicker({
               onClick={() => {
                 if (is12HourMode) {
                   setIs12HourMode(false);
-                  const numH = parseInt(hourStr || "0", 10);
+                  const numH = parseInt(hourRef.current || "0", 10);
                   let h24 = numH;
-                  if (period === "PM" && numH !== 12) h24 = numH + 12;
-                  if (period === "AM" && numH === 12) h24 = 0;
+                  if (periodRef.current === "PM" && numH !== 12) h24 = numH + 12;
+                  if (periodRef.current === "AM" && numH === 12) h24 = 0;
                   const paddedH = String(h24).padStart(2, "0");
                   setHourStr(paddedH);
-                  emitTime(paddedH, minuteStr || "00", period, false);
+                  emitTime(paddedH, minuteRef.current || "00", periodRef.current, false);
                 }
               }}
               className={`rounded-md px-2.5 py-1 font-bold transition ${
@@ -339,13 +374,13 @@ export default function BirthDateTimePicker({
               onClick={() => {
                 if (!is12HourMode) {
                   setIs12HourMode(true);
-                  const numH = parseInt(hourStr || "0", 10);
+                  const numH = parseInt(hourRef.current || "0", 10);
                   const p = numH >= 12 ? "PM" : "AM";
                   const h12 = numH === 0 ? 12 : numH > 12 ? numH - 12 : numH;
                   const paddedH = String(h12).padStart(2, "0");
                   setHourStr(paddedH);
                   setPeriod(p);
-                  emitTime(paddedH, minuteStr || "00", p, true);
+                  emitTime(paddedH, minuteRef.current || "00", p, true);
                 }
               }}
               className={`rounded-md px-2.5 py-1 font-bold transition ${
@@ -378,29 +413,34 @@ export default function BirthDateTimePicker({
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, "").slice(0, 2);
                 setHourStr(val);
-                if (val !== "") {
-                  emitTime(val, minuteStr || "00", period, is12HourMode);
-                  if (val.length === 2 && minRef.current) {
-                    minRef.current.focus();
+                // Only emit if user typed 2 digits; if 1 digit, allow typing without premature formatting
+                if (val.length === 2) {
+                  let num = parseInt(val, 10);
+                  if (!isNaN(num)) {
+                    if (is12ModeRef.current) num = Math.min(12, Math.max(1, num));
+                    else num = Math.min(23, Math.max(0, num));
+                    const clean = String(num).padStart(2, "0");
+                    emitTime(clean, minuteRef.current || "00", periodRef.current, is12ModeRef.current);
                   }
                 }
               }}
-              onBlur={() => {
-                if (!hourStr) {
-                  const defaultH = is12HourMode ? "12" : "08";
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/\D/g, "").trim();
+                if (!raw) {
+                  const defaultH = is12ModeRef.current ? "12" : "08";
                   setHourStr(defaultH);
-                  emitTime(defaultH, minuteStr || "00", period, is12HourMode);
+                  emitTime(defaultH, minuteRef.current || "00", periodRef.current, is12ModeRef.current);
                 } else {
-                  let num = parseInt(hourStr, 10);
-                  if (isNaN(num)) num = is12HourMode ? 12 : 8;
-                  if (is12HourMode) {
+                  let num = parseInt(raw, 10);
+                  if (isNaN(num)) num = is12ModeRef.current ? 12 : 8;
+                  if (is12ModeRef.current) {
                     num = Math.min(12, Math.max(1, num));
                   } else {
                     num = Math.min(23, Math.max(0, num));
                   }
                   const padded = String(num).padStart(2, "0");
                   setHourStr(padded);
-                  emitTime(padded, minuteStr || "00", period, is12HourMode);
+                  emitTime(padded, minuteRef.current || "00", periodRef.current, is12ModeRef.current);
                 }
               }}
               className={inputStyle}
@@ -416,7 +456,6 @@ export default function BirthDateTimePicker({
               {locale === "hi" ? "मिनट (00-59)" : "Minute (00-59)"}
             </label>
             <input
-              ref={minRef}
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
@@ -427,19 +466,27 @@ export default function BirthDateTimePicker({
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, "").slice(0, 2);
                 setMinuteStr(val);
-                if (val !== "") {
-                  emitTime(hourStr || (is12HourMode ? "12" : "08"), val, period, is12HourMode);
+                if (val.length === 2) {
+                  let num = parseInt(val, 10);
+                  if (!isNaN(num)) {
+                    num = Math.min(59, Math.max(0, num));
+                    const clean = String(num).padStart(2, "0");
+                    emitTime(hourRef.current || (is12ModeRef.current ? "12" : "08"), clean, periodRef.current, is12ModeRef.current);
+                  }
                 }
               }}
-              onBlur={() => {
-                if (!minuteStr) {
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/\D/g, "").trim();
+                if (!raw) {
                   setMinuteStr("00");
-                  emitTime(hourStr || (is12HourMode ? "12" : "08"), "00", period, is12HourMode);
+                  emitTime(hourRef.current || (is12ModeRef.current ? "12" : "08"), "00", periodRef.current, is12ModeRef.current);
                 } else {
-                  const num = Math.min(59, Math.max(0, parseInt(minuteStr, 10) || 0));
-                  const padded = String(num).padStart(2, "0");
-                  setMinuteStr(padded);
-                  emitTime(hourStr || (is12HourMode ? "12" : "08"), padded, period, is12HourMode);
+                  let num = parseInt(raw, 10);
+                  if (isNaN(num)) num = 0;
+                  num = Math.min(59, Math.max(0, num));
+                  const clean = String(num).padStart(2, "0");
+                  setMinuteStr(clean);
+                  emitTime(hourRef.current || (is12ModeRef.current ? "12" : "08"), clean, periodRef.current, is12ModeRef.current);
                 }
               }}
               className={inputStyle}
@@ -458,7 +505,7 @@ export default function BirthDateTimePicker({
                   type="button"
                   onClick={() => {
                     setPeriod("AM");
-                    emitTime(hourStr || "12", minuteStr || "00", "AM", true);
+                    emitTime(hourRef.current || "12", minuteRef.current || "00", "AM", true);
                   }}
                   className={`flex-1 rounded-md py-2 text-xs font-bold transition ${
                     period === "AM"
@@ -472,7 +519,7 @@ export default function BirthDateTimePicker({
                   type="button"
                   onClick={() => {
                     setPeriod("PM");
-                    emitTime(hourStr || "12", minuteStr || "00", "PM", true);
+                    emitTime(hourRef.current || "12", minuteRef.current || "00", "PM", true);
                   }}
                   className={`flex-1 rounded-md py-2 text-xs font-bold transition ${
                     period === "PM"
