@@ -40,12 +40,14 @@ import {
   type UserProfile,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { useAuth, authEnabled } from "@/lib/auth";
 import { AppLoadingScreen } from "@/components/Skeletons";
 
 type TabKey = "overview" | "allowlist" | "users" | "providers" | "prompt";
 
 export default function AdminPage() {
   const { locale } = useI18n();
+  const { session, loading: authLoading } = useAuth();
 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -82,8 +84,16 @@ export default function AdminPage() {
     setTimeout(() => setFeedback(null), 4000);
   }
 
-  // Verify Admin Access
+  // Session-level admin check
+  const isSessionAdmin = Boolean(
+    session?.user?.email && session.user.email.toLowerCase() === "aayubansaldps@gmail.com"
+  );
+  const isAdmin = Boolean(currentUser?.is_admin || isSessionAdmin);
+
+  // Verify Admin Access with retry/session sync
   useEffect(() => {
+    if (authEnabled && authLoading) return;
+
     api
       .getMe()
       .then((me) => {
@@ -91,14 +101,14 @@ export default function AdminPage() {
         setAuthChecked(true);
       })
       .catch((err) => {
-        console.error("Auth check failed:", err);
+        console.warn("AdminPage: getMe check failed:", err);
         setAuthChecked(true);
       });
-  }, []);
+  }, [authLoading, session]);
 
   // Fetch Tab Data
   useEffect(() => {
-    if (!currentUser?.is_admin) return;
+    if (!isAdmin) return;
 
     if (activeTab === "overview") {
       api.getAdminOverview().then(setOverview).catch((e) => notify(String(e), "error"));
@@ -116,13 +126,17 @@ export default function AdminPage() {
         setPromptStyle(data.style);
       }).catch((e) => notify(String(e), "error"));
     }
-  }, [currentUser, activeTab]);
+  }, [isAdmin, activeTab]);
 
-  if (!authChecked) {
+  if (authEnabled && authLoading) {
     return <AppLoadingScreen message="Verifying administrative credentials..." />;
   }
 
-  if (!currentUser || !currentUser.is_admin) {
+  if (!authChecked && !isSessionAdmin) {
+    return <AppLoadingScreen message="Verifying administrative credentials..." />;
+  }
+
+  if (!isAdmin) {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 text-red-600 border border-red-200">
@@ -131,7 +145,7 @@ export default function AdminPage() {
         <h1 className="font-serif text-2xl font-bold text-ink">Access Restricted</h1>
         <p className="mt-2 text-sm text-stone-600">
           This portal requires administrator authorization. Your account (
-          <span className="font-semibold text-ink">{currentUser?.email || "Guest"}</span>) is not listed in the
+          <span className="font-semibold text-ink">{currentUser?.email || session?.user?.email || "Guest"}</span>) is not listed in the
           system administrator directory.
         </p>
         <Link
@@ -282,7 +296,7 @@ export default function AdminPage() {
         <div className="flex items-center gap-3 self-start sm:self-center">
           <div className="rounded-xl border border-goldline/70 bg-cream/70 px-3.5 py-2 text-right">
             <p className="text-[11px] font-semibold text-stone-500">Signed In As</p>
-            <p className="font-serif text-xs font-bold text-ink">{currentUser.email}</p>
+            <p className="font-serif text-xs font-bold text-ink">{currentUser?.email || session?.user?.email || "Admin"}</p>
           </div>
         </div>
       </div>

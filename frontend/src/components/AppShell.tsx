@@ -55,10 +55,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!authEnabled || session) {
       api.getMe().then(setUserProfile).catch(() => {});
-    } else {
+    } else if (!authLoading && !session) {
       setUserProfile(null);
     }
-  }, [session]);
+  }, [session, authLoading]);
+
+  const isAdmin = Boolean(
+    userProfile?.is_admin ||
+      (session?.user?.email && session.user.email.toLowerCase() === "aayubansaldps@gmail.com")
+  );
 
   // Sync active profile from pathname, localStorage, or custom events
   useEffect(() => {
@@ -413,7 +418,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
 
             {/* Admin Panel (Admins Only) */}
-            {userProfile?.is_admin && (
+            {isAdmin && (
               <Link
                 href="/admin"
                 title={locale === "hi" ? "प्रशासक नियंत्रण" : "Admin Panel"}
@@ -532,7 +537,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       {locale === "hi" ? "साइन आउट" : "Sign out"}
                     </button>
                   )}
-                  {userProfile?.is_admin && (
+                  {isAdmin && (
                     <Link
                       href="/admin"
                       onClick={() => setMenuOpen(false)}
