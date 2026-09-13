@@ -87,12 +87,12 @@ def render_north_indian_png(chart: dict, varga: str = "D1", width_px: int = 800)
         sign_idx = sign_for_house(h)
         sign_number = str(sign_idx + 1)
         ax.text(cx, cy - 24, sign_number, ha="center", va="center",
-                fontsize=13, fontweight="bold", color="#C2410C")
+                fontsize=14, fontweight="bold", color="#C2410C")
         entries = house_planets[h]
         for i, (mark, highlight) in enumerate(entries):
             ax.text(cx, cy - 5 + i * 16, mark, ha="center", va="center",
-                    fontsize=11.0 if len(mark) > 5 else 12.5, fontweight="bold",
-                    color="#B45309" if highlight else "#292524")
+                    fontsize=12.0 if len(mark) > 5 else 13.5, fontweight="bold",
+                    color="#C2410C" if highlight else "#1C1917")
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight", facecolor="#FFFCF2")

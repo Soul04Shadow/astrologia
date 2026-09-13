@@ -136,11 +136,12 @@
     margin-bottom: 2pt;
   }
   .chart-img {
-    width: 220px;
+    width: 285px;
     max-width: 100%;
     height: auto;
-    border: 0.8pt solid #fed7aa;
+    border: 1pt solid #fed7aa;
     background-color: #fffcf2;
+    border-radius: 4px;
   }
   .chart-legend {
     font-size: 6.8pt;
@@ -322,7 +323,52 @@
     </tr>
   </table>
 
+  <!-- Sarvashtakavarga (SAV) Summary if present -->
+  {% if ashtakavarga and ashtakavarga.house_strengths %}
+  <div class="keep-together" style="margin-top: 5pt;">
+    <div class="section-title">Sarvashtakavarga House Bindus (SAV)</div>
+    <table class="data-table" style="text-align: center;">
+      <thead>
+        <tr>
+          {% for h in range(1, 13) %}
+          <th>H{{ h }}</th>
+          {% endfor %}
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {% for h in range(1, 13) %}
+          {% set hs = ashtakavarga.house_strengths.get(h) or ashtakavarga.house_strengths.get(h|string) %}
+          <td style="font-weight:bold; {% if hs and hs.points >= 30 %}background-color:#dcfce7; color:#15803d;{% elif hs and hs.points < 25 %}background-color:#fee2e2; color:#b91c1c;{% endif %}">
+            {% if hs %}{{ hs.points }}{% else %}-{% endif %}
+          </td>
+          {% endfor %}
+          <td style="font-weight:bold; background-color:#ffedd5; color:#9a3412;">{{ ashtakavarga.total_bindus or 337 }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size:7pt; color:#78716c; margin-top:-2pt; margin-bottom:2pt;">
+      Benchmark: 28 Bindus per house. Green indicates strong houses (&gt;=30), red indicates sensitive houses (&lt;25). Total: 337 Bindus.
+    </div>
+  </div>
+  {% endif %}
+
   <div class="page-break"></div>
+
+  <!-- Page 2 Header Banner -->
+  <div style="border-bottom: 1.2pt solid #ea580c; padding-bottom: 2pt; margin-bottom: 4pt;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="font-size: 8.5pt; font-weight: bold; color: #9a3412;">
+          VEDIC ASTROLOGICAL DOSSIER &middot; {{ name }}
+        </td>
+        <td style="text-align: right; font-size: 7.5pt; color: #78716c;">
+          DOB: {{ birth.date }} &middot; Page 2 of 2
+        </td>
+      </tr>
+    </table>
+  </div>
 
   <!-- Planetary Positions & KP Sublords Table -->
   <div class="keep-together">
@@ -413,36 +459,7 @@
   </div>
   {% endif %}
 
-  <!-- Sarvashtakavarga (SAV) Summary if present -->
-  {% if ashtakavarga and ashtakavarga.house_strengths %}
-  <div class="keep-together">
-    <div class="section-title">Sarvashtakavarga House Bindus (SAV)</div>
-    <table class="data-table" style="text-align: center;">
-      <thead>
-        <tr>
-          {% for h in range(1, 13) %}
-          <th>H{{ h }}</th>
-          {% endfor %}
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          {% for h in range(1, 13) %}
-          {% set hs = ashtakavarga.house_strengths.get(h) or ashtakavarga.house_strengths.get(h|string) %}
-          <td style="font-weight:bold; {% if hs and hs.points >= 30 %}background-color:#dcfce7; color:#15803d;{% elif hs and hs.points < 25 %}background-color:#fee2e2; color:#b91c1c;{% endif %}">
-            {% if hs %}{{ hs.points }}{% else %}-{% endif %}
-          </td>
-          {% endfor %}
-          <td style="font-weight:bold; background-color:#ffedd5; color:#9a3412;">{{ ashtakavarga.total_bindus or 337 }}</td>
-        </tr>
-      </tbody>
-    </table>
-    <div style="font-size:7.5pt; color:#78716c; margin-top:-4pt; margin-bottom:6pt;">
-      Benchmark: 28 Bindus per house. Green indicates strong houses (&gt;=30), red indicates sensitive houses (&lt;25).
-    </div>
-  </div>
-  {% endif %}
+
 
   <!-- Astrologer Consultation & Remedies Section -->
   <div class="keep-together consultation-box">
