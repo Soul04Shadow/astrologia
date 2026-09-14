@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Check, ChevronLeft, Copy, MessageSquareQuote, Mic, MicOff, Pencil, Plus, RotateCw, Sun, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, Copy, MessageSquareQuote, Mic, MicOff, Pencil, Plus, RotateCw, Sparkles, Sun, Trash2, UserRound } from "lucide-react";
 import { api, type ChatMessageItem, type ChatSession, type ModelInfo, type Profile } from "@/lib/api";
 import { getSupabase } from "@/lib/auth";
 
@@ -29,6 +29,41 @@ interface ProviderInfo {
   id: string;
   ready: boolean;
 }
+
+const ANALYSIS_STAGES = [
+  {
+    step: 1,
+    title_en: "Examining Natal Lagna & Coordinates",
+    title_hi: "लग्न, जन्म चक्र एवं ग्रह स्थितियों का अवलोकन",
+    desc_en: "Scanning planetary degrees, houses, signs, and natal strengths...",
+    desc_hi: "ग्रहों के भोगांश, भाव, राशियाँ एवं कुंडली बल का गणितीय अध्ययन...",
+    icon: "🪐",
+  },
+  {
+    step: 2,
+    title_en: "Analyzing Dasha Periods & Planetary Transits",
+    title_hi: "दशा चक्र, ग्रह गोचर एवं दृष्टि विश्लेषण",
+    desc_en: "Correlating active Vimshottari mahadasha/antardasha with current celestial transits...",
+    desc_hi: "विंशोत्तरी महादशा/अंतर्दशा एवं वर्तमान आकाशीय गोचर का समन्वय...",
+    icon: "✨",
+  },
+  {
+    step: 3,
+    title_en: "Consulting Classical Vedic Principles",
+    title_hi: "महर्षि पाराशर व जैमिनी सूत्रों का समन्वय",
+    desc_en: "Cross-referencing Parashari yogas, shadbala, and divisional vargas...",
+    desc_hi: "वैदिक योगों, षड्बल, नवमांश व वर्गीय स्थितियों का सूक्ष्म परीक्षण...",
+    icon: "📜",
+  },
+  {
+    step: 4,
+    title_en: "Synthesizing Jyotish Guidance & Remedies",
+    title_hi: "दैवज्ञ परामर्श व समाधान संकलन",
+    desc_en: "Formulating personalized insights, predictions, and authentic Vedic remedies...",
+    desc_hi: "आपके प्रश्न के संदर्भ में सटीक मार्गदर्शन व शास्त्रसम्मत समाधान तैयार किया जा रहा है...",
+    icon: "🌟",
+  },
+] as const;
 
 const mdComponents: Components = {
   p: (props) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
@@ -82,12 +117,49 @@ export default function ChatPage() {
   const [toolCalls, setToolCalls] = useState<{ id?: string; name: string; args: any }[]>([]);
   const localeInitialized = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const isNearBottomRef = useRef(true);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const activeStreamReaderRef = useRef<AbortController | null>(null);
   const sessionMessagesCache = useRef<Record<string, ChatMessageItem[]>>({});
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const [analysisStage, setAnalysisStage] = useState(0);
+  const [generationSeconds, setGenerationSeconds] = useState(0);
+
+  // Timer & stage rotation during generation
+  useEffect(() => {
+    let timerInterval: any = null;
+    let stageInterval: any = null;
+
+    if (streaming || waitingFirstToken) {
+      setGenerationSeconds(0);
+      setAnalysisStage(0);
+
+      timerInterval = setInterval(() => {
+        setGenerationSeconds((s) => s + 1);
+      }, 1000);
+
+      stageInterval = setInterval(() => {
+        setAnalysisStage((prev) => (prev + 1) % 4);
+      }, 2500);
+    } else {
+      setGenerationSeconds(0);
+      setAnalysisStage(0);
+    }
+
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+      if (stageInterval) clearInterval(stageInterval);
+    };
+  }, [streaming, waitingFirstToken]);
+
+  function handleChatScroll() {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+  }
 
   // cleanup in-flight stream reader on unmount
   useEffect(() => {
@@ -237,9 +309,33 @@ export default function ChatPage() {
         }
       }
 
-      // Stream completed: reload session history from DB to get final saved assistant message
+      // 1. Immediately commit completed assistant message into state before clearing streaming flags
+      if (full.trim() && sid === activeSessionId) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.role === "assistant" && m.content === full)) return prev;
+          return [
+            ...prev,
+            {
+              id: Date.now(),
+              role: "assistant",
+              content: full,
+              language,
+              created_at: new Date().toISOString(),
+              session_id: Number(sid),
+            },
+          ];
+        });
+      }
+
+      // 2. Stream completed: reload authoritative session history from DB
       if (sid === activeSessionId) {
-        api.sessionHistory(id, sid).then(setMessages).catch(() => {});
+        try {
+          const fresh = await api.sessionHistory(id, sid);
+          if (sid === activeSessionId) {
+            sessionMessagesCache.current[sid] = fresh;
+            setMessages(fresh);
+          }
+        } catch {}
         api.listSessions(id).then(setSessions).catch(() => {});
       }
     } catch (err: any) {
@@ -250,6 +346,7 @@ export default function ChatPage() {
         setWaitingFirstToken(false);
         setStreamText("");
         setThinkingText("");
+        setToolCalls([]);
       }
     }
   }
@@ -290,9 +387,21 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, activeSessionId]);
 
+  // Smart non-jittery container auto-scroll
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, streamText, thinkingText, waitingFirstToken, pendingUser]);
+    if (!chatContainerRef.current) return;
+    if (isNearBottomRef.current) {
+      if (streaming && streamText) {
+        // Direct scroll position update during token stream prevents jerky animation fights
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      } else {
+        chatContainerRef.current.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [messages, streamText, thinkingText, waitingFirstToken, pendingUser, streaming]);
 
   async function handleTranslate(target: "hinglish" | "hi" | "en") {
     setLanguage(target);
@@ -597,12 +706,33 @@ export default function ChatPage() {
         }
       }
 
-      // Reload fresh messages from DB to get the saved assistant message
+      // 1. Immediately commit the finished assistant message into state
+      if (full.trim() && sid === activeSessionId) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.role === "assistant" && m.content === full)) return prev;
+          return [
+            ...prev,
+            {
+              id: Date.now(),
+              role: "assistant",
+              content: full,
+              language,
+              created_at: new Date().toISOString(),
+              session_id: Number(sid),
+            },
+          ];
+        });
+      }
+
+      // 2. Reload authoritative messages from DB to get the saved assistant record
       if (sid === activeSessionId) {
-        api.sessionHistory(id, sid).then((h) => {
-          sessionMessagesCache.current[sid] = h;
-          setMessages(h);
-        }).catch(() => {});
+        try {
+          const h = await api.sessionHistory(id, sid);
+          if (sid === activeSessionId) {
+            sessionMessagesCache.current[sid] = h;
+            setMessages(h);
+          }
+        } catch {}
         api.listSessions(id).then(setSessions).catch(() => {});
       }
     } catch (err: any) {
@@ -616,6 +746,7 @@ export default function ChatPage() {
         setStreamText("");
         setThinkingText("");
         setWaitingFirstToken(false);
+        setToolCalls([]);
       }
     }
   }
@@ -768,14 +899,24 @@ export default function ChatPage() {
           {translating ? t("chat.translating") : langNote}
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto py-4 pr-1">
+        <div
+          ref={chatContainerRef}
+          onScroll={handleChatScroll}
+          className="flex-1 space-y-4 overflow-y-auto py-4 pr-1 scroll-smooth"
+        >
           {messages.length === 0 && !streaming && !pendingUser && (
             <div className="rounded-xl border border-dashed border-gold bg-saffron-50/70 p-6 text-center text-sm text-stone-600">{t("chat.empty")}</div>
           )}
 
           {messages.map((m, idx) => {
             const isLastMessage = idx === messages.length - 1;
-            const isOrphanedUser = m.role === "user" && isLastMessage && !streaming && !pendingUser;
+            const isOrphanedUser =
+              m.role === "user" &&
+              isLastMessage &&
+              !streaming &&
+              !waitingFirstToken &&
+              !pendingUser &&
+              (Boolean(error) || messages.length === 1);
             const display =
               m.role === "assistant" ? (translatedCache[m.id]?.[language] ?? m.content) : m.content;
             return m.role === "user" ? (
@@ -833,26 +974,27 @@ export default function ChatPage() {
           )}
 
           {(streaming || waitingFirstToken) && (
-            <div className="flex items-start gap-2">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-700">
-                <Sun size={15} />
+            <div className="flex items-start gap-2 animate-in fade-in duration-300">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-goldline bg-sidebarbg text-saffron-600 shadow-2xs">
+                <Sun size={15} className={streaming && !streamText ? "animate-spin" : "text-saffron-600"} />
               </span>
-              <div className="max-w-[88%] w-full">
+              <div className="max-w-[88%] w-full space-y-2">
                 {toolCalls.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {toolCalls.map((tc, idx) => (
                       <span
                         key={idx}
-                        className="inline-flex items-center gap-1 rounded-full border border-gold bg-saffron-50 px-2.5 py-1 text-[11px] font-semibold text-saffron-800"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gold/60 bg-saffron-50 px-3 py-1 text-[11px] font-semibold text-saffron-800 shadow-2xs"
                       >
-                        🔧 Consulted {tc.name} {tc.args?.at_date ? `· ${tc.args.at_date}` : tc.args?.detail ? `· ${tc.args.detail}` : ""}
+                        <span className="h-1.5 w-1.5 rounded-full bg-saffron-500 animate-pulse" />
+                        ⚙️ {locale === "hi" ? "परामर्शित गणना" : "Consulted"}: {tc.name} {tc.args?.at_date ? `· ${tc.args.at_date}` : tc.args?.detail ? `· ${tc.args.detail}` : ""}
                       </span>
                     ))}
                   </div>
                 )}
 
                 {thinkingText && (
-                  <details className="mb-2.5 rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-stone-700 transition" open={!streamText}>
+                  <details className="rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-stone-700 transition" open={!streamText}>
                     <summary className="cursor-pointer font-bold text-amber-800 flex items-center gap-1.5 select-none">
                       <Sun size={13} className="text-amber-600 animate-pulse" />
                       <span>{streamText ? (locale === "hi" ? "विचार प्रक्रिया (क्लिक करें)" : "Thought process (expand)") : (locale === "hi" ? "कुंडली का विश्लेषण चल रहा है..." : "Analyzing chart & thinking...")}</span>
@@ -863,18 +1005,80 @@ export default function ChatPage() {
                   </details>
                 )}
 
-                <div className="min-h-[2.75rem] rounded-2xl rounded-tl-sm border border-goldline bg-panel px-4 py-3 text-sm shadow-sm">
+                <div className="relative overflow-hidden rounded-2xl rounded-tl-sm border border-goldline bg-panel p-4 shadow-sm">
+                  {/* Subtle top shimmer bar */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-saffron-400 via-amber-300 to-saffron-500 animate-pulse" />
+
                   {streamText ? (
-                    <div className="prose-chat">
-                      <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{streamText}</Markdown>
-                      <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-saffron-600 align-middle" />
+                    <div>
+                      <div className="mb-2 flex items-center justify-between border-b border-goldline/30 pb-1.5 text-[11px] font-bold text-saffron-800">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles size={12} className="text-saffron-600 animate-pulse" />
+                          {locale === "hi" ? "दैवज्ञ उत्तर संकलित हो रहा है..." : "Generating astrological guidance..."}
+                        </span>
+                        <span className="font-mono text-[10px] text-stone-500 bg-saffron-50 px-2 py-0.5 rounded-md border border-goldline/30">
+                          ⏱️ {Math.floor(generationSeconds / 60)}:{String(generationSeconds % 60).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <div className="prose-chat text-sm text-ink">
+                        <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{streamText}</Markdown>
+                        <span className="ml-1 inline-block h-4 w-1.5 animate-pulse bg-saffron-600 align-middle" />
+                      </div>
                     </div>
                   ) : (
-                    <span className="flex gap-1 py-1.5" aria-label="thinking">
-                      {[0, 1, 2].map((i) => (
-                        <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-saffron-500" style={{ animationDelay: `${i * 150}ms` }} />
-                      ))}
-                    </span>
+                    <div className="space-y-3">
+                      {/* Active analysis header */}
+                      <div className="flex items-center justify-between border-b border-goldline/40 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-saffron-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-saffron-600"></span>
+                          </span>
+                          <span className="text-xs font-bold text-saffron-900 tracking-wide uppercase">
+                            {locale === "hi" ? "दैवज्ञ चिंतन एवं कुंडली विश्लेषण" : "Jyotish Calculation & Synthesis"}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-mono font-semibold text-stone-600 bg-saffron-50 px-2 py-0.5 rounded-md border border-goldline/40">
+                          ⏱️ {Math.floor(generationSeconds / 60)}:{String(generationSeconds % 60).padStart(2, "0")}
+                        </span>
+                      </div>
+
+                      {/* Active Astrological Step Card */}
+                      <div className="flex items-start gap-3 rounded-xl bg-saffron-50/50 p-2.5 border border-goldline/30 transition-all duration-300">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-lg border border-goldline/60 shadow-2xs">
+                          {ANALYSIS_STAGES[analysisStage].icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-stone-900 leading-snug">
+                            {locale === "hi" ? ANALYSIS_STAGES[analysisStage].title_hi : ANALYSIS_STAGES[analysisStage].title_en}
+                          </p>
+                          <p className="text-[11px] text-stone-600 mt-0.5 leading-relaxed">
+                            {locale === "hi" ? ANALYSIS_STAGES[analysisStage].desc_hi : ANALYSIS_STAGES[analysisStage].desc_en}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step Progress Ticker */}
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex items-center gap-1.5">
+                          {ANALYSIS_STAGES.map((s, idx) => (
+                            <span
+                              key={idx}
+                              className={`h-1.5 rounded-full transition-all duration-500 ${
+                                idx === analysisStage
+                                  ? "w-6 bg-saffron-600"
+                                  : idx < analysisStage
+                                  ? "w-2.5 bg-saffron-400"
+                                  : "w-2 bg-stone-200"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-semibold text-stone-500">
+                          {locale === "hi" ? `चरण ${analysisStage + 1} / 4` : `Step ${analysisStage + 1} of 4`}
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
