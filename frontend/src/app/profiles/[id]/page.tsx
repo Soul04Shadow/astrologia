@@ -310,7 +310,7 @@ export default function ChartPage() {
             type="button"
             onClick={handleDownloadPdf}
             disabled={downloadingPdf}
-            className="flex items-center gap-1.5 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white hover:bg-saffron-700 disabled:opacity-60 transition shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg bg-saffron-600 px-3 py-2 text-xs font-bold text-white hover:bg-saffron-500 disabled:opacity-60 transition shadow-sm"
           >
             {downloadingPdf ? (
               <Loader2 size={14} className="animate-spin" />
@@ -888,7 +888,7 @@ function TransitTable({
       <table className="w-full min-w-[480px] text-left text-sm">
         <thead>
           <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
-            <th className="py-1.5 pr-3">{t("chart.body")}</th>
+            <th className="sticky left-0 bg-panel py-1.5 pr-3 pl-1 font-bold z-10">{t("chart.body")}</th>
             <th className="py-1.5 pr-3">{t("chart.sign")}</th>
             <th className="py-1.5 pr-3">{t("chart.degree")}</th>
             <th className="py-1.5 pr-3">{t("chart.nakshatra")}</th>
@@ -905,7 +905,7 @@ function TransitTable({
               .join(" · ");
             return (
               <tr key={p} className="border-b border-saffron-100/70">
-                <td className="py-1.5 pr-3 font-semibold">{terms.planet(p)}</td>
+                <td className="sticky left-0 bg-panel py-1.5 pr-3 pl-1 font-semibold text-stone-900 z-10">{terms.planet(p)}</td>
                 <td className="py-1.5 pr-3">{terms.sign(v.sign)}</td>
                 <td className="py-1.5 pr-3 tabular-nums">{v.degree}</td>
                 <td className="py-1.5 pr-3">{terms.nakshatra(v.nakshatra)}</td>
@@ -922,28 +922,30 @@ function TransitTable({
 function PlanetTable({ chart }: { chart: Chart }) {
   const { t, terms, locale } = useI18n();
   const lagnaSublord = chart.lagna.sublord || chart.lagna.nakshatra?.sublord || "—";
+  const lagnaNakLord = chart.lagna.nakshatra?.lord ? terms.planet(chart.lagna.nakshatra.lord) : "—";
   const lagnaLordNote = locale === "hi" 
     ? `स्वामी: ${terms.planet(chart.lagna.lord)}` 
     : `Lord ${terms.planet(chart.lagna.lord)}`;
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] text-left text-sm">
+      <table className="w-full min-w-[580px] text-left text-sm">
         <thead>
           <tr className="border-b-2 border-saffron-600 text-[11px] uppercase tracking-wide text-stone-600">
-            <th className="py-2 pr-3">{t("chart.body")}</th>
+            <th className="sticky left-0 bg-panel py-2 pr-3 pl-1 font-bold z-10">{t("chart.body")}</th>
             <th className="py-2 pr-3">{t("chart.sign")}</th>
             <th className="py-2 pr-3">{t("chart.degree")}</th>
             <th className="py-2 pr-3">{t("chart.house")}</th>
             <th className="py-2 pr-3">{t("chart.nakshatra")}</th>
-            <th className="py-2 pr-3 text-saffron-800">{t("chart.sublord")}</th>
+            <th className="py-2 pr-3 text-saffron-800 font-bold">{t("chart.nakshatra_lord")}</th>
+            <th className="py-2 pr-3 text-stone-700">{t("chart.sublord")}</th>
             <th className="py-2">{t("chart.notes")}</th>
           </tr>
         </thead>
         <tbody>
           {/* Lagna / Ascendant Row */}
           <tr className="border-b border-saffron-200/80 bg-saffron-50/50 font-medium">
-            <td className="py-2 pr-3 font-bold text-saffron-900">
+            <td className="sticky left-0 bg-saffron-50/90 py-2 pr-3 pl-1 font-bold text-saffron-900 z-10">
               {locale === "hi" ? "लग्न (Asc)" : "Lagna (Asc)"}
             </td>
             <td className="py-2 pr-3 font-semibold text-stone-800">{terms.sign(chart.lagna.sign)}</td>
@@ -952,7 +954,10 @@ function PlanetTable({ chart }: { chart: Chart }) {
             <td className="py-2 pr-3 text-stone-700">
               {chart.lagna.nakshatra ? `${terms.nakshatra(chart.lagna.nakshatra.name)} (${chart.lagna.nakshatra.pada})` : "—"}
             </td>
-            <td className="py-2 pr-3 font-bold text-saffron-800">
+            <td className="py-2 pr-3 font-semibold text-saffron-800">
+              {lagnaNakLord}
+            </td>
+            <td className="py-2 pr-3 font-bold text-stone-700">
               {lagnaSublord !== "—" ? terms.planet(lagnaSublord) : "—"}
             </td>
             <td className="py-2 text-xs font-semibold text-saffron-700">{lagnaLordNote}</td>
@@ -966,10 +971,11 @@ function PlanetTable({ chart }: { chart: Chart }) {
               p.retrograde ? t("chart.retrograde") : "",
               p.combust ? t("chart.combust") : "",
             ].filter(Boolean);
+            const nakLord = p.nakshatra?.lord ? terms.planet(p.nakshatra.lord) : "—";
             const sub = p.sublord || p.nakshatra?.sublord || "—";
             return (
               <tr key={pname} className="border-b border-saffron-100/70 hover:bg-saffron-50/30 transition-colors">
-                <td className="py-2 pr-3 font-semibold text-stone-900">{terms.planet(pname)}</td>
+                <td className="sticky left-0 bg-panel py-2 pr-3 pl-1 font-semibold text-stone-900 z-10">{terms.planet(pname)}</td>
                 <td className="py-2 pr-3 text-stone-800">{terms.sign(p.sign)}</td>
                 <td className="py-2 pr-3 tabular-nums text-stone-700">{p.degree}</td>
                 <td className="py-2 pr-3 font-semibold text-stone-700">{p.house}</td>
@@ -977,6 +983,9 @@ function PlanetTable({ chart }: { chart: Chart }) {
                   {terms.nakshatra(p.nakshatra.name)} ({p.nakshatra.pada})
                 </td>
                 <td className="py-2 pr-3 font-semibold text-saffron-800">
+                  {nakLord}
+                </td>
+                <td className="py-2 pr-3 font-semibold text-stone-700">
                   {sub !== "—" ? terms.planet(sub) : "—"}
                 </td>
                 <td className="py-2 text-xs font-semibold text-saffron-700">{notes.join(" · ") || "—"}</td>

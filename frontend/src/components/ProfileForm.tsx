@@ -261,7 +261,7 @@ export default function ProfileForm({
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 rounded-lg bg-saffron-600 py-3 text-sm font-bold text-white shadow-md hover:bg-saffron-700 disabled:opacity-60 transition"
+            className="flex-1 rounded-lg bg-saffron-600 py-3 text-sm font-bold text-white shadow-md hover:bg-saffron-500 disabled:opacity-60 transition"
           >
             {saving
               ? t("form.submitting")

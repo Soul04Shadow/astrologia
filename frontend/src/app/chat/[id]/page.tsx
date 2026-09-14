@@ -641,7 +641,7 @@ export default function ChatPage() {
       <aside className="hidden w-64 shrink-0 flex-col rounded-xl border border-goldline bg-panel p-2 sm:flex">
         <button
           onClick={handleNewChat}
-          className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-saffron-600 px-3 py-2 text-sm font-bold text-white hover:bg-saffron-700"
+          className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-saffron-600 px-3 py-2 text-sm font-bold text-white hover:bg-saffron-500 transition shadow-xs"
         >
           <Plus size={14} /> {t("chat.new")}
         </button>
@@ -941,7 +941,7 @@ export default function ChatPage() {
           <button
             type="submit"
             disabled={streaming || !input.trim()}
-            className="shrink-0 flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-700 px-4 sm:px-5 text-sm font-bold text-white hover:bg-saffron-800 disabled:opacity-50 transition shadow-2xs active:scale-95"
+            className="shrink-0 flex h-[46px] items-center gap-1.5 rounded-xl bg-saffron-600 px-4 sm:px-5 text-sm font-bold text-white hover:bg-saffron-500 disabled:opacity-50 transition shadow-2xs active:scale-95"
           >
             {t("chat.send")}
           </button>

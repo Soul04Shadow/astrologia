@@ -146,7 +146,7 @@ export default function AdminPage() {
         </p>
         <Link
           href="/"
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-saffron-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-saffron-800 transition"
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-saffron-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-saffron-500 transition"
         >
           <ArrowLeft size={16} />
           <span>Return to Horoscopes</span>
@@ -508,7 +508,7 @@ export default function AdminPage() {
               />
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-saffron-700 px-5 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-saffron-800 transition active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-saffron-600 px-5 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-saffron-500 transition active:scale-95"
               >
                 <Plus size={16} />
                 <span>Add Tester</span>
@@ -686,7 +686,7 @@ export default function AdminPage() {
               <button
                 onClick={handleSaveSettings}
                 disabled={savingSettings}
-                className="inline-flex items-center gap-2 rounded-xl bg-saffron-700 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-saffron-800 transition disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-saffron-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-saffron-500 transition disabled:opacity-50"
               >
                 <Save size={14} />
                 <span>{savingSettings ? "Saving..." : "Save Default"}</span>
@@ -832,7 +832,7 @@ export default function AdminPage() {
               <button
                 onClick={handleSavePrompt}
                 disabled={savingPrompt}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-saffron-700 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-saffron-800 transition disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-saffron-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-saffron-500 transition disabled:opacity-50"
               >
                 <Save size={14} />
                 <span>{savingPrompt ? "Saving..." : "Save Active Prompt"}</span>

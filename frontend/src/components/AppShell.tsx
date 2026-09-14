@@ -282,7 +282,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 await signOut();
                 router.replace("/login");
               }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-saffron-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-saffron-700 transition"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-saffron-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-saffron-500 transition"
             >
               <LogOut size={14} />
               {locale === "hi" ? "लॉग आउट" : "Sign Out"}
@@ -628,7 +628,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <Link
                       href="/admin"
                       onClick={() => setMenuOpen(false)}
-                      className="mt-2 flex items-center justify-center gap-1.5 w-full rounded-lg bg-saffron-700 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-saffron-800 transition"
+                      className="mt-2 flex items-center justify-center gap-1.5 w-full rounded-lg bg-saffron-600 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-saffron-500 transition"
                     >
                       <ShieldCheck size={14} className="text-amber-200" />
                       <span>{locale === "hi" ? "प्रशासक नियंत्रण" : "Admin Dashboard"}</span>
