@@ -222,6 +222,15 @@ async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> 
   return fetch(url, init);
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText;
@@ -229,7 +238,7 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
       const body = await res.json();
       detail = body.detail ?? detail;
     } catch {}
-    throw new Error(detail);
+    throw new ApiError(detail, res.status);
   }
   return res.json() as Promise<T>;
 }

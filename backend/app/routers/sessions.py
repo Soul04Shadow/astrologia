@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import ChatMessage, ChatSession, Profile, User, get_db
 from app.schemas import ChatMessageOut
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, is_admin_user
 
 router = APIRouter(prefix="/profiles", tags=["sessions"])
 
@@ -35,7 +35,7 @@ class SessionRename(BaseModel):
 
 def _get_profile_or_404(db: Session, profile_id: int, user: User) -> Profile:
     profile = db.get(Profile, profile_id)
-    if not profile or profile.user_id != user.id:
+    if not profile or (profile.user_id != user.id and not is_admin_user(user)):
         raise HTTPException(status_code=404, detail="Profile not found")
     return profile
 

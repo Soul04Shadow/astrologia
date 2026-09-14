@@ -17,6 +17,8 @@ from app.services.auth import get_current_user
 from app.services.prompt import build_system_prompt
 from app.services.stream_hub import hub, run_background_generation, stream_chat
 
+from app.services.rate_limiter import chat_rate_limiter
+
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
@@ -43,6 +45,13 @@ def _get_or_create_default_session(db: Session, profile_id: int) -> ChatSession:
 
 @router.post("/{profile_id}")
 async def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Query(None), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    chat_rate_limiter.check(user.id)
+
+    # Sanitize message payload
+    clean_message = payload.message.replace("\x00", "").strip()
+    if not clean_message:
+        raise HTTPException(status_code=422, detail="Message cannot be empty or solely whitespace.")
+
     profile = db.get(Profile, profile_id)
     if not profile or profile.user_id != user.id:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -67,20 +76,20 @@ async def chat(profile_id: int, payload: ChatRequest, session_id: int | None = Q
 
     # auto-title from first message (40 chars) if default title
     if not history and resolved_session.title in ("First consultation", "New chat"):
-        resolved_session.title = payload.message.strip()[:40] or resolved_session.title
+        resolved_session.title = clean_message[:40] or resolved_session.title
 
     resolved_session.updated_at = datetime.now(timezone.utc)
     db.add(resolved_session)
     db.commit()
     db.refresh(resolved_session)
 
-    user_msg = ChatMessage(profile_id=profile.id, session_id=session_id, role="user", content=payload.message,
+    user_msg = ChatMessage(profile_id=profile.id, session_id=session_id, role="user", content=clean_message,
                            language=payload.language)
     db.add(user_msg)
     db.commit()
 
     messages = [{"role": "system", "content": system_prompt}, *history,
-                {"role": "user", "content": payload.message}]
+                {"role": "user", "content": clean_message}]
 
     cfg = provider_config(payload.provider, payload.model)
 

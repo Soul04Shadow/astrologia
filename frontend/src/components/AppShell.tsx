@@ -2,19 +2,22 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Circle,
   Languages,
+  LogOut,
   Menu,
   MessageSquare,
   MessageSquareQuote,
   Pencil,
   PlusCircle,
+  RefreshCw,
   ScrollText,
+  ShieldAlert,
   ShieldCheck,
   Sun,
   UserRound,
@@ -50,15 +53,46 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProfile, setActiveProfile] = useState<ActiveProfile | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  const checkUserAccess = useCallback(async () => {
+    if (!authEnabled) return;
+    if (!session) {
+      setUserProfile(null);
+      setAccessDenied(false);
+      return;
+    }
+    setCheckingAccess(true);
+    try {
+      const me = await api.getMe();
+      setUserProfile(me);
+      setAccessDenied(false);
+    } catch (err: unknown) {
+      const errStr = String(err);
+      const isForbidden = (err as { status?: number })?.status === 403 || errStr.includes("403") || errStr.toLowerCase().includes("allowlist");
+      if (isForbidden) {
+        setAccessDenied(true);
+        setUserProfile(null);
+      }
+    } finally {
+      setCheckingAccess(false);
+    }
+  }, [session]);
+
   useEffect(() => {
-    if (!authEnabled || session) {
+    if (!authEnabled) {
       api.getMe().then(setUserProfile).catch(() => {});
+      return;
+    }
+    if (session) {
+      checkUserAccess();
     } else if (!authLoading && !session) {
       setUserProfile(null);
+      setAccessDenied(false);
     }
-  }, [session, authLoading]);
+  }, [session, authLoading, checkUserAccess]);
 
   const isAdmin = Boolean(userProfile?.is_admin);
 
@@ -199,6 +233,62 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <p className="mt-4 text-sm font-semibold tracking-wide text-saffron-800">
           {locale === "hi" ? "लॉगिन पृष्ठ पर ले जाया जा रहा है..." : "Redirecting to login..."}
         </p>
+      </div>
+    );
+  }
+
+  if (authEnabled && session && accessDenied && pathname !== "/login") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-cream px-4 py-8">
+        <div className="w-full max-w-md rounded-3xl border border-goldline bg-panel p-7 sm:p-9 text-center shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-saffron-100 text-saffron-700 shadow-2xs">
+            <ShieldAlert size={32} />
+          </div>
+          <span className="inline-block rounded-full border border-goldline bg-saffron-50 px-3 py-1 text-xs font-bold text-saffron-800">
+            {locale === "hi" ? "निजी बीटा आमंत्रण आवश्यक" : "Private Beta Access Restricted"}
+          </span>
+          <h2 className="mt-4 font-serif text-xl font-bold text-saffron-900">
+            {locale === "hi" ? "प्रवेश अस्वीकृत" : "Access Restricted"}
+          </h2>
+          <p className="mt-2 text-xs text-stone-600 leading-relaxed">
+            {locale === "hi"
+              ? "एस्ट्रोलॉजिया वर्तमान में केवल सीमित आमंत्रित बीटा परीक्षकों के लिए ही उपलब्ध है। आपका खाता सत्यापित हो चुका है, परंतु वर्तमान में अनुमोदित सूची में नहीं है।"
+              : "Astrologia is currently running in private beta. Your account is authenticated, but your email has not yet been approved on the private beta allowlist."}
+          </p>
+
+          <div className="mt-4 rounded-xl border border-goldline/70 bg-cream/70 px-3 py-2 text-xs font-semibold text-saffron-900 break-all">
+            {session.user?.email || "Authenticated User"}
+          </div>
+
+          <p className="mt-3 text-[11px] text-stone-500">
+            {locale === "hi"
+              ? "यदि आप प्रारंभिक परीक्षक बनना चाहते हैं, तो कृपया ईमेल सूची में जोड़ने हेतु व्यवस्थापक से संपर्क करें।"
+              : "To request early access or get allowlisted, please reach out to the platform administrator."}
+          </p>
+
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
+            <button
+              onClick={() => checkUserAccess()}
+              disabled={checkingAccess}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-goldline bg-panel px-4 py-2.5 text-xs font-bold text-saffron-800 shadow-2xs hover:bg-saffron-100 transition disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={checkingAccess ? "animate-spin" : ""} />
+              {checkingAccess
+                ? (locale === "hi" ? "जाँच हो रही है..." : "Checking...")
+                : (locale === "hi" ? "पुनः प्रयास करें" : "Re-check Access")}
+            </button>
+            <button
+              onClick={async () => {
+                await signOut();
+                router.replace("/login");
+              }}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-saffron-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-saffron-700 transition"
+            >
+              <LogOut size={14} />
+              {locale === "hi" ? "लॉग आउट" : "Sign Out"}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

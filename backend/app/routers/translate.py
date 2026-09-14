@@ -2,22 +2,32 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.db import User
+from app.services.auth import get_current_user
 from app.services.llm import complete_chat
+from app.services.rate_limiter import translate_rate_limiter
 
 router = APIRouter(prefix="/translate", tags=["translate"])
 
 
 class TranslateRequest(BaseModel):
-    text: str = Field(min_length=1)
+    text: str = Field(min_length=1, max_length=5000)
     target_language: Literal["en", "hi", "hinglish"]
     provider: str | None = None
 
 
 @router.post("")
-async def translate(payload: TranslateRequest):
+async def translate(payload: TranslateRequest, user: User = Depends(get_current_user)):
+    translate_rate_limiter.check(user.id)
+
+    # Sanitize null bytes and control chars
+    clean_text = payload.text.replace("\x00", "").strip()
+    if not clean_text:
+        raise HTTPException(status_code=422, detail="Text cannot be empty or solely whitespace.")
+
     target_map = {
         "en": "English",
         "hi": "Hindi in Devanagari script",
@@ -31,7 +41,7 @@ async def translate(payload: TranslateRequest):
     )
     messages = [
         {"role": "system", "content": prompt},
-        {"role": "user", "content": payload.text},
+        {"role": "user", "content": clean_text},
     ]
     translated = await complete_chat(messages, provider=payload.provider)
     return {"translated": translated}

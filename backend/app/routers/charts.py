@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db import Profile, User, get_db
 from app.engine import compute_full_chart
 from app.schemas import ProfileCreate
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, is_admin_user
 
 router = APIRouter(prefix="/charts", tags=["charts"])
 
@@ -39,7 +39,7 @@ def preview_chart_post(payload: ProfileCreate, db: Session = Depends(get_db), us
 @router.get("/{profile_id}")
 def chart_for_profile(profile_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     profile = db.get(Profile, profile_id)
-    if not profile or profile.user_id != user.id:
+    if not profile or (profile.user_id != user.id and not is_admin_user(user)):
         raise HTTPException(status_code=404, detail="Profile not found")
     try:
         chart = _chart_for_profile(profile)

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.db import ChatMessage, Profile, User, get_db
 from app.routers.charts import _chart_for_profile
 from app.schemas import ChatMessageOut, ProfileCreate, ProfileOut
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, is_admin_user
 from app.services.pdf import render_report_html, render_report_pdf
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -18,7 +18,9 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 def _owned_profile_or_404(db: Session, profile_id: int, user: User) -> Profile:
     profile = db.get(Profile, profile_id)
-    if not profile or (profile.user_id != user.id and profile.user_id is not None and user.id != "local-admin"):
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    if profile.user_id != user.id and not is_admin_user(user):
         raise HTTPException(status_code=404, detail="Profile not found")
     return profile
 
