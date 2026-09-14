@@ -58,13 +58,47 @@ def report_html(profile_id: int, db: Session = Depends(get_db), user: User = Dep
     return HTMLResponse(content=html_str)
 
 
+def _enrich_profile_out(profile: Profile) -> ProfileOut:
+    p_dict = {
+        "id": profile.id,
+        "name": profile.name,
+        "birth_date": profile.birth_date,
+        "birth_time": profile.birth_time,
+        "place_name": profile.place_name,
+        "latitude": profile.latitude,
+        "longitude": profile.longitude,
+        "tz_name": profile.tz_name,
+        "notes": profile.notes,
+        "created_at": profile.created_at,
+        "nakshatra": None,
+        "nakshatra_lord": None,
+        "moon_sign": None,
+    }
+    try:
+        from app.engine.core import local_to_utc, nakshatra_of, raw_positions, sign_info, utc_to_jd
+        b_parts = [int(x) for x in profile.birth_date.split("-")]
+        t_parts = [int(x) for x in profile.birth_time.split(":")]
+        utc_dt = local_to_utc(b_parts[0], b_parts[1], b_parts[2], t_parts[0], t_parts[1], profile.tz_name)
+        jd = utc_to_jd(utc_dt)
+        pos = raw_positions(jd)
+        moon_lon = pos["Moon"]["lon"]
+        nak = nakshatra_of(moon_lon)
+        si = sign_info(moon_lon)
+        p_dict["nakshatra"] = nak["name"]
+        p_dict["nakshatra_lord"] = nak["lord"]
+        p_dict["moon_sign"] = si["name"]
+    except Exception:
+        pass
+    return ProfileOut(**p_dict)
+
+
 @router.post("", response_model=ProfileOut)
 def create_profile(payload: ProfileCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     profile = Profile(**payload.model_dump(), user_id=user.id)
     db.add(profile)
     db.commit()
     db.refresh(profile)
-    return profile
+    return _enrich_profile_out(profile)
 
 
 @router.get("", response_model=list[ProfileOut])
@@ -73,14 +107,16 @@ def list_profiles(db: Session = Depends(get_db), user: User = Depends(get_curren
         condition = (Profile.user_id == user.id) | (Profile.user_id.is_(None))
     else:
         condition = (Profile.user_id == user.id)
-    return db.scalars(
+    profiles = db.scalars(
         select(Profile).where(condition).order_by(Profile.created_at.desc())
     ).all()
+    return [_enrich_profile_out(p) for p in profiles]
 
 
 @router.get("/{profile_id}", response_model=ProfileOut)
 def get_profile(profile_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return _owned_profile_or_404(db, profile_id, user)
+    profile = _owned_profile_or_404(db, profile_id, user)
+    return _enrich_profile_out(profile)
 
 
 @router.put("/{profile_id}", response_model=ProfileOut)
@@ -90,7 +126,7 @@ def update_profile(profile_id: int, payload: ProfileCreate, db: Session = Depend
         setattr(profile, key, value)
     db.commit()
     db.refresh(profile)
-    return profile
+    return _enrich_profile_out(profile)
 
 
 @router.delete("/{profile_id}")

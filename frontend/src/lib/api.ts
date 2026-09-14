@@ -67,6 +67,18 @@ export interface Chart {
       antardashas: { lord: string; start_date: string; end_date: string }[];
     }[];
   };
+  panchang_birth?: {
+    date: string;
+    tz_name: string;
+    weekday: string;
+    var_lord: string;
+    tithi: { index: number; paksha: string; name: string };
+    nakshatra: { name: string; lord: string };
+    yoga: { index: number; name: string };
+    karana: { index: number; name: string };
+    sun_sign: string;
+    moon_sign: string;
+  };
   panchang_today?: {
     date: string;
     tz_name: string;
@@ -161,6 +173,68 @@ export interface Profile {
   tz_name: string;
   notes?: string | null;
   created_at: string;
+  nakshatra?: string | null;
+  nakshatra_lord?: string | null;
+  moon_sign?: string | null;
+}
+
+export interface VarshphalData {
+  target_year: number;
+  completed_age: number;
+  running_year_age: number;
+  period: {
+    start_date: string;
+    end_date: string;
+    display: string;
+  };
+  varshapravesha: {
+    utc: string;
+    local: string;
+    tz_name: string;
+    is_daytime: boolean;
+  };
+  lagna: {
+    longitude: number;
+    sign: string;
+    sanskrit: string;
+    sign_index: number;
+    degree: string;
+    lord: string;
+    nakshatra: NakshatraInfo;
+  };
+  planets: Record<string, PlanetPlacement>;
+  muntha: {
+    sign_index: number;
+    sign: string;
+    sanskrit: string;
+    house: number;
+    lord: string;
+    completed_age: number;
+    target_age_year: number;
+    status: string;
+  };
+  panchaadhikaris: {
+    candidates: Record<string, string>;
+    scores: Record<
+      string,
+      {
+        planet: string;
+        house: number;
+        aspects_lagna: boolean;
+        office_count: number;
+        dignity: string;
+        score: number;
+      }
+    >;
+    varsheshwara: string;
+  };
+  mudda_dasha: {
+    lord: string;
+    duration_days: number;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
+  }[];
 }
 
 export interface PlaceResult {
@@ -308,6 +382,23 @@ export const api = {
       jsonOrThrow<{ profile: { id: number; name: string }; chart: Chart }>(r),
     );
     memoryCache.set(key, data, 600); // deterministic natal chart, cache for 10 min
+    return data;
+  },
+  getVarshphal: async (
+    id: number | string,
+    year?: number,
+    forceRefresh: boolean = false,
+  ): Promise<{ profile: { id: number; name: string }; varshphal: VarshphalData }> => {
+    const key = `varshphal:${id}:${year ?? "current"}`;
+    if (!forceRefresh) {
+      const cached = memoryCache.get<{ profile: { id: number; name: string }; varshphal: VarshphalData }>(key);
+      if (cached) return cached;
+    }
+    const q = year ? `?year=${year}` : "";
+    const data = await apiFetch(`${BASE}/api/charts/${id}/varshphal${q}`).then((r) =>
+      jsonOrThrow<{ profile: { id: number; name: string }; varshphal: VarshphalData }>(r),
+    );
+    memoryCache.set(key, data, 300);
     return data;
   },
   previewChart: (payload: Omit<Profile, "id" | "created_at"> & { name: string }) =>

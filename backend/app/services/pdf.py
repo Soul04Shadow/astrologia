@@ -115,7 +115,7 @@ def render_report_html(
         current_antar=(current.get("antardasha") or {}),
         mahadashas=dasha.get("mahadashas", []),
         yogas=chart.get("yogas", []),
-        panchang=chart.get("panchang_today"),
+        panchang=chart.get("panchang_birth") or chart.get("panchang_today"),
         ashtakavarga=chart.get("ashtakavarga"),
         shadbala=chart.get("shadbala", {}),
         d9=chart.get("navamsa_d9", {}),

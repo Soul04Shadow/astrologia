@@ -8,8 +8,8 @@ def test_tools_specs_and_execute():
     from app.services.tools import TOOLS, execute
     from app.engine import compute_full_chart
 
-    # 10 tools
-    assert len(TOOLS) == 10, f"expected 10 tools got {len(TOOLS)}"
+    # 11 tools
+    assert len(TOOLS) == 11, f"expected 11 tools got {len(TOOLS)}"
     names = [t["function"]["name"] for t in TOOLS]
     expected = {
         "get_transit",
@@ -22,6 +22,7 @@ def test_tools_specs_and_execute():
         "get_shadbala",
         "get_varga_chart",
         "get_sade_sati_details",
+        "get_varshphal",
     }
     assert set(names) == expected, f"names mismatch {names}"
 
@@ -107,6 +108,14 @@ def test_tools_specs_and_execute():
     data = json.loads(out)
     assert "sade_sati" in data
     assert "guru_gochar" in data
+
+    # get_varshphal
+    out = asyncio.run(execute("get_varshphal", {"year": 2026}, chart))
+    data = json.loads(out)
+    assert "period" in data
+    assert "muntha" in data
+    assert "panchaadhikaris" in data
+    assert data["target_year"] == 2026
 
     # bad date raises ValueError not crash
     try:

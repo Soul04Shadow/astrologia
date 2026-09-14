@@ -35,6 +35,9 @@ class ProfileOut(BaseModel):
     tz_name: str
     notes: str | None = None
     created_at: datetime
+    nakshatra: str | None = None
+    nakshatra_lord: str | None = None
+    moon_sign: str | None = None
 
     class Config:
         from_attributes = True

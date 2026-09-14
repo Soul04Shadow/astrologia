@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
   Clock3,
   CloudSun,
   Compass,
@@ -22,6 +23,7 @@ import {
   Sun,
 } from "lucide-react";
 import VargaChart, { type PlacementMark } from "@/components/VargaChart";
+import VarshphalTab from "@/components/VarshphalTab";
 import { api, type Chart, type Profile } from "@/lib/api";
 import { ChartPageSkeleton } from "@/components/Skeletons";
 import { getSupabase } from "@/lib/auth";
@@ -43,6 +45,7 @@ function Card({ title, children, className = "" }: { title?: string; children: R
 
 const TABS = [
   { id: "d1", label: "D1 Rasi", icon: Sun },
+  { id: "varshphal", label: "Varsh Kundli (Annual)", icon: CalendarDays },
   { id: "vargas", label: "Divisional Charts", icon: LayoutGrid },
   { id: "ashtakavarga", label: "Ashtakavarga", icon: Grid3X3 },
   { id: "shadbala", label: "Shadbala", icon: Scale },
@@ -420,6 +423,14 @@ export default function ChartPage() {
         </div>
       )}
 
+      {tab === "varshphal" && profile && (
+        <VarshphalTab
+          profileId={profile.id}
+          birthDate={profile.birth_date}
+          natalChart={chart}
+        />
+      )}
+
       {tab === "vargas" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-1.5 border-b border-goldline/60 pb-2">
@@ -758,14 +769,69 @@ export default function ChartPage() {
       )}
 
       {tab === "panchang" && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Birth Panchang (Janma Panchang - Core Natal Pillars) */}
+          {chart.panchang_birth && !("error" in chart.panchang_birth) && (
+            <Card
+              title={
+                locale === "hi"
+                  ? `जन्म पंचांग (${chart.panchang_birth.date} · ${chart.panchang_birth.tz_name})`
+                  : `Janma Panchang (Birth Panchang · ${chart.panchang_birth.date} · ${chart.panchang_birth.tz_name})`
+              }
+              className="border-saffron-600/40 shadow-xs"
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <span className="rounded-md bg-saffron-600 px-2 py-0.5 text-xs font-bold text-white shadow-2xs">
+                  {locale === "hi" ? "जन्म कालीन" : "Natal"}
+                </span>
+                <span className="text-xs font-medium text-stone-600">
+                  {locale === "hi"
+                    ? "जातक के जन्म समय का मूल वैदिक पंचांग"
+                    : "Panchang calculated at the exact moment and location of birth"}
+                </span>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+                <Field
+                  label={t("panchang.tithi")}
+                  value={`${terms.paksha(chart.panchang_birth.tithi.paksha)} ${terms.tithi(chart.panchang_birth.tithi.name)}`}
+                />
+                <Field
+                  label={t("panchang.nakshatra")}
+                  value={`${terms.nakshatra(chart.panchang_birth.nakshatra.name)} (${terms.planet(chart.panchang_birth.nakshatra.lord)})`}
+                />
+                <Field label={t("panchang.yoga")} value={terms.yogaState(chart.panchang_birth.yoga.name)} />
+                <Field label={t("panchang.karana")} value={terms.karana(chart.panchang_birth.karana.name)} />
+                <Field
+                  label={t("panchang.var")}
+                  value={`${terms.weekday(chart.panchang_birth.weekday)} (${terms.planet(chart.panchang_birth.var_lord)})`}
+                />
+                <Field
+                  label={t("panchang.luminaries")}
+                  value={`${terms.sign(chart.panchang_birth.sun_sign)} / ${terms.sign(chart.panchang_birth.moon_sign)}`}
+                />
+              </dl>
+            </Card>
+          )}
+
+          {/* Today's Panchang (Dainik Panchang - Daily Transits) */}
           {chart.panchang_today && !("error" in chart.panchang_today) && (
             <Card
-              title={t("panchang.title", {
-                date: chart.panchang_today.date,
-                tz: chart.panchang_today.tz_name,
-              })}
+              title={
+                locale === "hi"
+                  ? `दैनिक पंचांग (आज · ${chart.panchang_today.date} · ${chart.panchang_today.tz_name})`
+                  : `Dainik Panchang (Today's Transits · ${chart.panchang_today.date} · ${chart.panchang_today.tz_name})`
+              }
             >
+              <div className="mb-3 flex items-center gap-2">
+                <span className="rounded-md bg-stone-200 px-2 py-0.5 text-xs font-bold text-stone-700">
+                  {locale === "hi" ? "गोचर / आज" : "Today"}
+                </span>
+                <span className="text-xs font-medium text-stone-600">
+                  {locale === "hi"
+                    ? "वर्तमान समय का खगोलीय पंचांग"
+                    : "Current celestial day panchang"}
+                </span>
+              </div>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
                 <Field
                   label={t("panchang.tithi")}

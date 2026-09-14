@@ -21,6 +21,11 @@ def compute_full_chart(year: int, month: int, day: int, hour: int, minute: int,
     chart = compute_d1(year, month, day, hour, minute, tz_name, lat, lon_geo)
 
     birth_utc = datetime.strptime(chart["birth_details"]["utc_time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    try:
+        chart["panchang_birth"] = panchang_for(birth_utc, tz_name)
+    except Exception as e:
+        chart["panchang_birth"] = {"error": str(e)}
+
     moon_lon = chart["planets"]["Moon"]["longitude"]
 
     dasha = vimshottari(moon_lon, birth_utc)

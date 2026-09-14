@@ -159,6 +159,23 @@ TOOLS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_varshphal",
+            "description": "Get Tajika Varshphal (Annual Solar Return Horoscope / Varsh Kundli) for this native for a specific year. Includes Varsha Lagna, Muntha (sign, house, lord), Varsheshwara (Lord of the Year), annual planetary placements, and Mudda Dasha.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "integer",
+                        "description": "The target return year (e.g. 2026). If omitted, returns the currently active annual cycle.",
+                    }
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
@@ -316,5 +333,16 @@ async def execute(name: str, args: dict, chart: dict) -> str:
             "yogas": chart.get("yogas", []),
         }
         return json.dumps(snap, ensure_ascii=False)
+
+    if name == "get_varshphal":
+        target_year = args.get("year")
+        if target_year is not None:
+            try:
+                target_year = int(target_year)
+            except (ValueError, TypeError):
+                raise ValueError("Parameter 'year' must be an integer (e.g. 2026)")
+        from app.engine.varshphal import compute_varshphal
+        v_res = compute_varshphal(chart, target_year=target_year)
+        return json.dumps(v_res, ensure_ascii=False)
 
     raise ValueError(f"Unknown tool '{name}'")
